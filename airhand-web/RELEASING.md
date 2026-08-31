@@ -47,8 +47,28 @@ Deja `dist\AirHand-<versión>-win64.zip` listo para subir a mano.
 
 ## Qué hay que revisar antes
 
-- Las pruebas pasan: `python tests\test_engine.py`
-- El ejecutable **arranca**. Compilar sin errores no garantiza que funcione:
-  hay fallos que solo salen al ejecutar el binario (rutas, imports que
-  PyInstaller no detecta). Ábrelo y comprueba que llega al panel.
+Casi nada, porque `build.py` no empaqueta si el ejecutable no funciona: al
+terminar de compilar lo ejecuta con `--selftest` y comprueba de verdad que
+MediaPipe carga, que los modelos y la web de AirLink viajan dentro y que la
+pila de red responde. Si algo falla, no genera el `.zip`.
+
+Esa comprobación existe por un fallo real: excluir `matplotlib` del paquete
+para ahorrar espacio parecía inofensivo, pero `mediapipe/__init__.py` lo
+importa de forma indirecta. El resultado era un ejecutable que arrancaba, que
+mostraba el panel con normalidad y que **no detectaba ni una mano**. Compilaba
+sin un solo error. Comprobar que "abre" no habría bastado.
+
+Queda por revisar a mano:
+
 - La versión de `version.py` coincide con la etiqueta.
+- Un repaso con la cámara puesta, que ningún diagnóstico sustituye.
+
+## Si algo va mal en una instalación
+
+El mismo diagnóstico está disponible para quien tenga la aplicación:
+
+```bat
+AirTouch.exe --selftest
+```
+
+Escribe el resultado en `%APPDATA%\AirTouch\logs\airtouch.log`.

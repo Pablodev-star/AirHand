@@ -14,6 +14,18 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Una prueba no puede depender del monitor de quien la ejecuta. El teclado
+# virtual se distribuye segun el tamanyo de pantalla, asi que en un equipo 4:3
+# las teclas caen en otro sitio. Se fija una pantalla ficticia ANTES de
+# importar los modulos que la consultan: la importan por valor
+# (``from .screen import primary_screen``), asi que parchearla despues no
+# serviria de nada.
+from airtouch.core import screen as _screen                # noqa: E402
+
+_FAKE_SCREEN = _screen.Rect(0, 0, 2560, 1440)
+_screen.primary_screen = lambda: _FAKE_SCREEN
+_screen.virtual_screen = lambda: _FAKE_SCREEN
+
 from airtouch.config import Config                       # noqa: E402
 from airtouch.core.frame_state import FaceState, FrameState, HandState  # noqa: E402
 from airtouch.core.mapping import PointerMapper          # noqa: E402

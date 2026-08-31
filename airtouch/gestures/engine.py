@@ -62,6 +62,12 @@ class EngineOutput:
     note: str = ""
 
 
+# Pantalla de referencia sobre la que se calibraron los umbrales de gesto.
+# Ver GestureEngine._palm_px: los recorridos se miden aqui, no en la
+# pantalla real, para que un gesto sea el mismo en cualquier monitor.
+_REF_W, _REF_H = 2560.0, 1440.0
+
+
 class GestureEngine:
     def __init__(self, cfg: Config, mapper: PointerMapper) -> None:
         self.cfg = cfg
@@ -275,13 +281,24 @@ class GestureEngine:
 
     # ---------------- pinch ----------------
     def _palm_px(self, hand: HandState) -> tuple[float, float]:
-        """Palma en pixeles de pantalla.
+        """Palma en pixeles de una pantalla de REFERENCIA, no de la real.
 
         La palma es el punto estable de la mano: no se desplaza al juntar los
         dedos, asi que es lo que hay que usar para medir arrastres.
+
+        Y se mide contra una referencia fija a proposito. Los umbrales
+        (``click_max_travel_px`` y companyia) se ajustaron a mano sobre un
+        monitor de 2560 px logicos. Midiendo sobre la pantalla real, el mismo
+        gesto contaba 410 px en ese monitor y solo 164 en uno de 1024: el
+        arrastre era mucho mas dificil de disparar en pantallas pequenyas y
+        demasiado facil en grandes, y el scroll cambiaba de velocidad segun el
+        equipo. Contra una referencia fija, un gesto significa lo mismo en
+        cualquier PC y la calibracion original se conserva intacta.
+
+        Solo se usa para medir DESPLAZAMIENTOS. El puntero se coloca con las
+        coordenadas del mapeador, que si son de la pantalla real.
         """
-        t = self.mapper.target
-        return float(hand.palm[0]) * t.w, float(hand.palm[1]) * t.h
+        return float(hand.palm[0]) * _REF_W, float(hand.palm[1]) * _REF_H
 
     def _on_pinch_down(self, px: float, py: float, hand: HandState, t: float,
                        out: EngineOutput) -> None:

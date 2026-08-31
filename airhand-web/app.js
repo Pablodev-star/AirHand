@@ -166,6 +166,12 @@ const FAQ = [
   ['El vídeo se corta al salir de la app del móvil',
    'iOS apaga la cámara cuando la app pasa a segundo plano. Es una limitación ' +
    'del sistema: deja AirLink abierto en primer plano.'],
+  ['No detecta mis manos, o algo falla y no sé qué',
+   'AirHand se sabe revisar a sí mismo. Abre la carpeta donde lo descomprimiste, ' +
+   'escribe <code>cmd</code> en la barra de direcciones del explorador y ejecuta:<br>' +
+   '<code>AirTouch.exe --selftest</code><br>' +
+   'Comprueba la cámara, los modelos y la red, y dice qué pieza falla. El ' +
+   'informe queda en <code>%APPDATA%\\AirTouch\\logs</code>.'],
   ['¿Se ve mi cámara en internet?',
    'No. El vídeo va directo del móvil al PC por tu red local, cifrado. No hay ' +
    'ningún servidor por el medio, y AirHand funciona igual con el router sin ' +

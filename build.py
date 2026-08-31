@@ -8,6 +8,7 @@ onefile lo hace mucho mas lento al arrancar.
 """
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -55,8 +56,9 @@ def smoke_test(exe: Path, timeout: int = 180) -> bool:
     # Sin consola no hay salida estandar: el detalle esta en el registro.
     detail = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
     for line in detail.splitlines():
-        if "autodiagnostico" in line or "[OK ]" in line or "[MAL]" in line:
-            print("   " + line.split(": ", 2)[-1])
+        if "autodiagnostico" in line.lower() or "[OK ]" in line or "[MAL]" in line:
+            # quita el prefijo del registro (fecha, nivel, modulo) y deja el mensaje
+            print("   " + re.sub(r"^.*? \w+ +[\w.]+: ", "", line))
 
     if code != 0:
         print(f"FALLO: el autodiagnostico devolvio {code}")
