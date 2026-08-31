@@ -1,0 +1,81 @@
+# Compila AirHand y publica la version automaticamente.
+#
+# Se dispara al subir una etiqueta que empiece por "v" (v1.0.0, v1.2.3...).
+# Compila en un Windows real de GitHub, empaqueta y crea la publicacion con el
+# .zip adjunto.
+#
+# Consecuencia: publicar una version = subir una etiqueta. Nada mas. La pagina
+# de instalacion y el comprobador de actualizaciones de la app la encuentran
+# solos, porque preguntan a la API de GitHub en vez de tener URLs escritas.
+name: Compilar y publicar
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Etiqueta a publicar (por ejemplo v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v4
+
+      # AirLink vive en su propio repositorio, pero viaja dentro del ejecutable:
+      # es la pagina que el PC sirve al movil.
+      - name: Traer AirLink
+        run: git clone --depth 1 https://github.com/Pablodev-star/AirLink.git airlink-web
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Pruebas
+        run: python tests/test_engine.py
+
+      - name: Compilar
+        run: python build.py
+
+      - name: Comprobar que el ejecutable existe
+        shell: pwsh
+        run: |
+          $exe = "dist/AirTouch/AirTouch.exe"
+          if (-not (Test-Path $exe)) { throw "No se generó $exe" }
+          $zip = Get-ChildItem dist/*.zip | Select-Object -First 1
+          if (-not $zip) { throw "No se generó el paquete .zip" }
+          "Ejecutable: $((Get-Item $exe).Length / 1MB) MB"
+          "Paquete   : $($zip.Name)  $($zip.Length / 1MB) MB"
+
+      - name: Publicar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: AirHand ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: dist/*.zip
+          body: |
+            ## Instalación
+
+            1. Descarga el `.zip` de abajo y descomprímelo donde quieras.
+            2. Ejecuta `AirTouch.exe`.
+            3. Sigue el asistente.
+
+            Guía completa paso a paso: https://pablodev-star.github.io/AirHand/
+
+            Windows avisará de que el archivo no está firmado: pulsa
+            **Más información → Ejecutar de todas formas**. El código es público.

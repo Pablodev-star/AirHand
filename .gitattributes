@@ -1,3 +1,4 @@
-# Web estatica: finales de linea LF en el repositorio, siempre.
 * text=auto eol=lf
+*.bat text eol=crlf
 *.png binary
+*.task binary

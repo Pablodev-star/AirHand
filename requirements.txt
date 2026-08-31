@@ -1,0 +1,14 @@
+# AirTouch - dependencias
+# Python 3.11 (MediaPipe aun no soporta bien 3.13)
+
+mediapipe>=0.10.14,<0.11
+opencv-python>=4.9,<5
+numpy>=1.26,<2
+PySide6>=6.6,<6.9
+pywin32>=306
+requests>=2.31
+comtypes>=1.4
+pygrabber>=0.2
+segno>=1.6
+aiortc>=1.13,<2
+aiohttp>=3.9

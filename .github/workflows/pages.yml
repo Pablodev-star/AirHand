@@ -1,10 +1,11 @@
-# Publica el contenido del repositorio tal cual en GitHub Pages.
-# No hay build: son archivos estaticos a proposito.
-name: Desplegar en GitHub Pages
+# Publica el sitio de instalacion (airhand-web/) en GitHub Pages.
+# No hay compilacion: son archivos estaticos a proposito.
+name: Publicar el sitio
 
 on:
   push:
     branches: [main]
+    paths: ['airhand-web/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,6 +28,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'airhand-web'
       - id: deployment
         uses: actions/deploy-pages@v4
