@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0c0f">
+<title>AirHand · controla tu PC con las manos</title>
+<meta name="description" content="Convierte tu iPhone en un sensor de manos y controla Windows con gestos. Instalación guiada paso a paso, sin saber programar.">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ======================= portada ======================= -->
+<header class="hero">
+  <nav class="nav">
+    <span class="brand"><i class="mark"></i>AirHand</span>
+    <a class="nav-link" href="#instalar">Instalar</a>
+    <a class="nav-link" href="#gestos">Gestos</a>
+    <a class="nav-link" href="#problemas">Ayuda</a>
+    <a class="nav-link ghost" id="nav-repo" href="#" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+
+  <div class="hero-body">
+    <p class="kicker">Control gestual para Windows 11</p>
+    <h1>Tus manos son<br>el ratón</h1>
+    <p class="lede">
+      Apunta con el índice. Junta los dedos para hacer clic. Tu iPhone es la
+      cámara y el vídeo nunca sale de tu WiFi.
+    </p>
+
+    <div class="cta">
+      <a class="btn primary big" href="#instalar" id="btn-hero">Instalar en 5 minutos</a>
+      <span class="cta-note" id="hero-version">Gratis y de código abierto</span>
+    </div>
+
+    <div class="demo" aria-hidden="true">
+      <div class="demo-hand"><i class="tip thumb"></i><i class="tip index"></i></div>
+      <div class="demo-cursor"></div>
+      <p class="demo-caption">Junta el pulgar y el índice: eso es un clic</p>
+    </div>
+  </div>
+</header>
+
+<!-- ======================= requisitos ======================= -->
+<section class="band">
+  <div class="wrap">
+    <h2>Qué necesitas</h2>
+    <div class="grid-3">
+      <div class="need">
+        <div class="need-icon">🖥️</div>
+        <h3>Un PC con Windows 11</h3>
+        <p>También funciona en Windows 10. No hace falta tarjeta gráfica potente.</p>
+        <p class="check" id="check-os">Comprobando tu sistema…</p>
+      </div>
+      <div class="need">
+        <div class="need-icon">📱</div>
+        <h3>Un iPhone</h3>
+        <p>Hace de cámara. Sirve cualquiera con iOS 16 o superior. También vale un Android con Chrome.</p>
+      </div>
+      <div class="need">
+        <div class="need-icon">📶</div>
+        <h3>La misma red WiFi</h3>
+        <p>El móvil y el PC tienen que estar en la misma red. El PC puede ir por cable.</p>
+      </div>
+    </div>
+    <p class="tiny">
+      No necesitas instalar Python, ni saber programar, ni tener nada descargado
+      antes. Tampoco hay cuentas, suscripciones ni anuncios.
+    </p>
+  </div>
+</section>
+
+<!-- ======================= instalación ======================= -->
+<section id="instalar" class="band alt">
+  <div class="wrap">
+    <h2>Instalación paso a paso</h2>
+    <p class="sub">Marca cada paso al completarlo. Se guarda solo si cierras la página.</p>
+
+    <div class="progress"><div class="progress-fill" id="progress"></div></div>
+    <p class="progress-label"><span id="progress-text">0 de 6 pasos</span></p>
+
+    <ol class="steps" id="steps">
+
+      <!-- 1 -->
+      <li class="step" data-step="1">
+        <div class="step-head">
+          <span class="num">1</span>
+          <h3>Descarga AirHand</h3>
+          <label class="done"><input type="checkbox"><span></span></label>
+        </div>
+        <div class="step-body">
+          <p>Un único archivo. No instala nada raro ni toca tu sistema.</p>
+          <a class="btn primary" id="btn-download" href="#" rel="noopener">
+            Descargar para Windows
+          </a>
+          <p class="meta" id="download-meta">Buscando la última versión…</p>
+          <details>
+            <summary>Windows dice que el archivo no es seguro</summary>
+            <p>
+              Es normal: el programa no está firmado digitalmente, y firmar
+              cuesta unos cientos de euros al año. Pulsa
+              <b>Más información → Ejecutar de todas formas</b>.
+              El código es público, puedes leerlo entero en GitHub.
+            </p>
+          </details>
+        </div>
+      </li>
+
+      <!-- 2 -->
+      <li class="step" data-step="2">
+        <div class="step-head">
+          <span class="num">2</span>
+          <h3>Ábrelo</h3>
+          <label class="done"><input type="checkbox"><span></span></label>
+        </div>
+        <div class="step-body">
+          <p>
+            Descomprime la carpeta donde quieras y haz doble clic en
+            <code>AirTouch.exe</code>. La primera vez tarda unos segundos en
+            arrancar porque descarga los modelos de detección (unos 12 MB).
+          </p>
+          <p class="meta">Se abrirá el panel de AirTouch con un asistente.</p>
+        </div>
+      </li>
+
+      <!-- 3 -->
+      <li class="step" data-step="3">
+        <div class="step-head">
+          <span class="num">3</span>
+          <h3>Permite el cortafuegos</h3>
+          <label class="done"><input type="checkbox"><span></span></label>
+        </div>
+        <div class="step-body">
+          <p>
+            Tu móvil necesita poder hablar con el PC. En la pestaña
+            <b>Cámara</b> verás un aviso con un botón
+            <b>«Permitir en el cortafuegos»</b>. Púlsalo y acepta la ventana de
+            Windows que aparece.
+          </p>
+          <div class="callout">
+            Muchas redes domésticas —sobre todo con sistemas mesh— quedan
+            marcadas como <b>públicas</b>, y en ese modo Windows bloquea todo lo
+            que entra. Este paso lo resuelve.
+          </div>
+        </div>
+      </li>
+
+      <!-- 4 -->
+      <li class="step" data-step="4">
+        <div class="step-head">
+          <span class="num">4</span>
+          <h3>Conecta el móvil</h3>
+          <label class="done"><input type="checkbox"><span></span></label>
+        </div>
+        <div class="step-body">
+          <p>
+            En <b>Cámara → Conectar teléfono</b> aparece un código QR.
+            Escanéalo con la cámara del iPhone y se abrirá AirLink con todo
+            relleno.
+          </p>
+          <ol class="mini">
+            <li>Safari avisará: <b>Mostrar detalles → Visitar este sitio web</b>.
+              Es el certificado que genera tu propio PC, no hay ninguna empresa
+              que lo firme.</li>
+            <li>Pulsa <b>Conectar</b> y permite el acceso a la cámara.</li>
+            <li>Deja <b>1080p · 60 fps · cámara trasera</b>.</li>
+          </ol>
+          <div class="callout ok">
+            Coloca el móvil <b>encima del monitor, en horizontal, apuntándote a
+            ti</b>. Con la cámara trasera, la pantalla queda mirando a la pared.
+          </div>
+        </div>
+      </li>
+
+      <!-- 5 -->
+      <li class="step" data-step="5">
+        <div class="step-head">
+          <span class="num">5</span>
+          <h3>Calíbralo a tu mano</h3>
+          <label class="done"><input type="checkbox"><span></span></label>
+        </div>
+        <div class="step-body">
+          <p>
+            El asistente te pedirá dos cosas: abrir la mano y juntar los dedos.
+            Con eso ajusta los umbrales a tu mano concreta. Después apuntarás a
+            las cuatro esquinas de la pantalla.
+          </p>
+          <p class="meta">
+            Puedes repetirlo cuando quieras desde <b>Ajustes → Puntero</b>.
+          </p>
+        </div>
+      </li>
+
+      <!-- 6 -->
+      <li class="step" data-step="6">
+        <div class="step-head">
+          <span class="num">6</span>
+          <h3>Activa el control</h3>
+          <label class="done"><input type="checkbox"><span></span></label>
+        </div>
+        <div class="step-body">
+          <p>
+            AirHand arranca siempre en <b>modo seguro</b>: ves el puntero y los
+            gestos en pantalla, pero no toca tu ratón. Cuando quieras control
+            real, actívalo en <b>Resumen</b>.
+          </p>
+          <div class="callout warn">
+            <b>Para recuperar el control en cualquier momento:</b> mantén
+            <kbd>Esc</kbd> un segundo, mueve el ratón físico, o abre la palma de
+            la mano.
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <div class="finished" id="finished" hidden>
+      <div class="finished-mark">✓</div>
+      <h3>¡Listo!</h3>
+      <p>Ya controlas tu ordenador con las manos. Abajo tienes todos los gestos.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= gestos ======================= -->
+<section id="gestos" class="band">
+  <div class="wrap">
+    <h2>Los gestos</h2>
+    <div class="gestures" id="gestures"></div>
+    <div class="callout">
+      <b>La catapulta</b> es el gesto de tirar chapas: curva el índice
+      apoyándolo contra el pulgar y suéltalo de golpe hacia delante.
+    </div>
+  </div>
+</section>
+
+<!-- ======================= cómo funciona ======================= -->
+<section class="band alt">
+  <div class="wrap">
+    <h2>Cómo funciona</h2>
+    <div class="flow">
+      <div class="flow-item"><b>1</b><p>El iPhone captura a 1080p60 y lo envía por WebRTC</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item"><b>2</b><p>El vídeo va <b>directo por tu WiFi</b>, sin pasar por internet</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item"><b>3</b><p>El PC localiza 21 puntos de tu mano en cada fotograma</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-item"><b>4</b><p>Una máquina de estados decide si es clic, scroll o zoom</p></div>
+    </div>
+    <div class="grid-3 privacy">
+      <div class="need">
+        <h3>🔒 Nada sale de tu casa</h3>
+        <p>El vídeo viaja del móvil al PC por la red local. No hay servidores.</p>
+      </div>
+      <div class="need">
+        <h3>🚫 Sin telemetría</h3>
+        <p>Ni analítica, ni cuentas, ni anuncios. Ni siquiera necesita internet para funcionar.</p>
+      </div>
+      <div class="need">
+        <h3>📖 Código abierto</h3>
+        <p>Todo el código es público y puedes leerlo. Licencia MIT.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= problemas ======================= -->
+<section id="problemas" class="band">
+  <div class="wrap narrow">
+    <h2>Si algo no va</h2>
+    <div id="faq"></div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap">
+    <p><b>AirHand</b> · control gestual para Windows</p>
+    <p class="tiny">
+      Hecho con MediaPipe y WebRTC. Licencia MIT.
+      <a id="foot-repo" href="#" target="_blank" rel="noopener">Código en GitHub</a>
+    </p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
