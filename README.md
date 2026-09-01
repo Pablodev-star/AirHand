@@ -121,8 +121,10 @@ Publicar una versión — un solo comando; ver
 [airhand-web/RELEASING.md](airhand-web/RELEASING.md):
 
 ```bat
-.venv\Scripts\python.exe release.py 1.1.0
+.venv\Scripts\python.exe release.py 1.2.0
 ```
+
+Sin argumentos dice cuál es la versión actual y qué números tocan.
 
 ## Limitaciones conocidas
 

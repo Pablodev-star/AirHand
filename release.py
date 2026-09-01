@@ -1,6 +1,9 @@
 """Publica una version nueva con un solo comando.
 
-    .venv\\Scripts\\python.exe release.py 1.1.0
+    .venv\\Scripts\\python.exe release.py <version>
+
+Ejecutalo sin argumentos y te dice cual es la version actual y que numeros
+tocan a continuacion.
 
 Existe para cerrar un agujero concreto: el numero de version vive en
 ``airtouch/version.py`` y de ahi sale el nombre del .zip, pero lo que dispara
@@ -43,25 +46,45 @@ def escribir_version(nueva: str) -> None:
     VERSION_PY.write_text(texto, encoding="utf-8")
 
 
+def piezas(v: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in v.split("."))
+
+
+def siguientes(actual: str) -> tuple[str, str]:
+    """Los dos numeros que casi siempre quieres: correcciones y novedades."""
+    x, y, z = piezas(actual)
+    return f"{x}.{y}.{z + 1}", f"{x}.{y + 1}.0"
+
+
+def _sugerencias(actual: str) -> str:
+    parche, menor = siguientes(actual)
+    return (f"  release.py {parche}   <- correcciones\n"
+            f"  release.py {menor}   <- novedades")
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) != 2 or not re.fullmatch(r"\d+\.\d+\.\d+", argv[1]):
-        print(__doc__)
-        print(f"Version actual: {version_actual()}")
-        return 2
-    nueva = argv[1]
     actual = version_actual()
 
-    # ---- comprobaciones antes de tocar nada ----
-    if nueva == actual:
-        raise SystemExit(f"La version ya es {actual}. Elige otra.")
+    if len(argv) != 2 or not re.fullmatch(r"\d+\.\d+\.\d+", argv[1]):
+        print(__doc__)
+        print(f"Version actual: {actual}\n")
+        print(_sugerencias(actual))
+        return 2
+    nueva = argv[1]
 
-    def piezas(v: str) -> tuple[int, ...]:
-        return tuple(int(x) for x in v.split("."))
+    # ---- comprobaciones antes de tocar nada ----
+    # Los mensajes proponen numeros concretos a proposito. Un "elige otra"
+    # obliga a adivinar, y aqui se cae a menudo: el ejemplo de la
+    # documentacion se queda viejo en cuanto se publica esa misma version,
+    # asi que quien lo copie aterriza justo en este error.
+    if nueva == actual:
+        raise SystemExit(f"La version {actual} ya esta publicada.\n\n"
+                         + _sugerencias(actual))
 
     if piezas(nueva) < piezas(actual):
-        raise SystemExit(f"{nueva} es anterior a {actual}. El comprobador de "
-                         "actualizaciones no ofreceria nada a quien ya tenga "
-                         f"la {actual}.")
+        raise SystemExit(f"{nueva} es anterior a la actual ({actual}): quien ya "
+                         f"tenga la {actual} no veria ninguna "
+                         f"actualizacion.\n\n" + _sugerencias(actual))
 
     if git("status", "--porcelain"):
         raise SystemExit("Hay cambios sin confirmar. Guardalos o descartalos "

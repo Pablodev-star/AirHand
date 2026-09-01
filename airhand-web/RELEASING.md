@@ -9,8 +9,14 @@ dos preguntan a la API de GitHub en lugar de tener URLs escritas a mano.
 Un solo comando:
 
 ```bat
-.venv\Scripts\python.exe release.py 1.1.0
+.venv\Scripts\python.exe release.py 1.2.0
 ```
+
+El número que escribas tiene que ser mayor que el publicado, claro. Si no te
+acuerdas de cuál es, ejecútalo **sin argumentos**: te dice la versión actual y
+te propone los dos números que suelen tocar (correcciones y novedades). Es el
+error más facil de cometer, porque el ejemplo de cualquier documentación se
+queda viejo en cuanto se publica esa misma versión.
 
 Eso comprueba que el árbol está limpio, que estás en `main` y sincronizado,
 que la versión avanza, pasa las pruebas, sube el número en `version.py`,
