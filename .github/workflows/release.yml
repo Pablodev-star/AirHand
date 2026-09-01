@@ -45,8 +45,27 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      # La etiqueta manda, pero el nombre del .zip sale de version.py. Si no
+      # coinciden se publicaria una version v1.1.0 conteniendo un
+      # AirHand-1.0.0-win64.zip, y quien lo descargue se lleva el binario
+      # viejo creyendo que es el nuevo. Mejor no publicar nada.
+      - name: Comprobar que la etiqueta coincide con version.py
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $esperada = $tag -replace '^v', ''
+          $declarada = (python -c "from airtouch.version import __version__; print(__version__)").Trim()
+          "etiqueta : $tag"
+          "version.py: $declarada"
+          if ($declarada -ne $esperada) {
+            throw "La etiqueta dice $esperada y version.py dice $declarada. Sube el numero en airtouch/version.py antes de etiquetar."
+          }
+          "Coinciden."
+
       - name: Pruebas
-        run: python tests/test_engine.py
+        run: |
+          python tests/test_engine.py
+          python tests/test_wizard.py
 
       - name: Compilar
         run: python build.py

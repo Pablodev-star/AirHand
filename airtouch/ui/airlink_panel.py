@@ -14,7 +14,8 @@ from .widgets import Badge, Banner, Card, Dot, Hr, label
 class AirLinkPanel(Card):
     """QR, código y estado de la conexión con el móvil."""
 
-    def __init__(self, ctl: Controller, parent: QWidget | None = None) -> None:
+    def __init__(self, ctl: Controller, parent: QWidget | None = None,
+                 show_help: bool = True) -> None:
         super().__init__("Conectar teléfono",
                          "Escanea el código con la cámara del iPhone",
                          parent)
@@ -90,11 +91,15 @@ class AirLinkPanel(Card):
         fw_row.addWidget(self.fw_state, 1)
         self.add_layout(fw_row)
 
-        self.add(label(
+        # El asistente ya explica esto mismo, paso a paso y en grande, asi que
+        # alli se oculta: repetido dos veces en la misma pantalla solo estorba.
+        self.help = label(
             "El móvil y el PC tienen que estar en la misma red. La primera vez "
             "Safari avisará de que el certificado no es de confianza: es normal, lo "
             "genera tu propio PC. Toca «Mostrar detalles → Visitar este sitio web».",
-            "faint"))
+            "faint")
+        self.add(self.help)
+        self.help.setVisible(show_help)
         self._check_firewall()
 
         self._timer = QTimer(self)

@@ -588,9 +588,9 @@ class Dashboard(QMainWindow):
     def _refresh_banner(self, status: str = "") -> None:
         if self._low_res and self.ctl.running:
             self.banner.set(
-                "La cámara está enviando poca resolución. Sube la calidad en la "
-                "app de iVCam del móvil (720p o más): por debajo de eso los "
-                "dedos se detectan con mucho ruido y el puntero tiembla.",
+                "La cámara está enviando poca resolución. Sube la calidad en "
+                "AirLink, en el móvil, a 1080p: por debajo de 720p los dedos se "
+                "detectan con mucho ruido y el puntero tiembla.",
                 "warn", "!")
             return
         if not self.ctl.running:

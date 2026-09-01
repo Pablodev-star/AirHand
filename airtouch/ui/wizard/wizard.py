@@ -16,16 +16,16 @@ import time
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QGraphicsOpacityEffect, QHBoxLayout, QLabel,
+    QDialog, QGraphicsOpacityEffect, QHBoxLayout, QLabel,
     QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from ...config import Config
-from ...core.capture import list_camera_indices, list_camera_names
 from ...core.controller import Controller
 from ...gestures.engine import EngineOutput
 from ...gestures.events import EventType
 from .. import theme
+from ..airlink_panel import AirLinkPanel
 from ..anim import fade, tween
 from ..calibration import CalibrationWindow
 from ..celebrate import Confetti, Pulse, SuccessMark
@@ -192,96 +192,88 @@ class IntroPage(Page):
 
 # ------------------------------------------------------------------ 1. camara
 class CameraPage(Page):
+    """Emparejamiento con el movil por AirLink.
+
+    Antes esta pagina pedia instalar iVCam y elegir una webcam del sistema, y
+    al salir dejaba ``source_type = "index"``. Es decir: terminar el asistente
+    apagaba AirLink y devolvia la aplicacion a la camara que precisamente
+    habiamos dejado de usar, sin decir nada. Ahora empareja de verdad.
+
+    No se deja continuar hasta que llegan fotogramas: las paginas siguientes
+    miden tu mano y tu encuadre, y sin imagen no miden nada. Avanzar sin
+    camara solo llevaria a tres pantallas que no responden.
+    """
+
+    #: fotogramas que hay que recibir antes de dar la conexion por buena. Con
+    #: uno o dos basta para que "phone_connected" sea cierto, pero la primera
+    #: imagen suele llegar antes de que el movil estabilice la camara.
+    _MIN_FRAMES = 15
+
     def __init__(self, cfg: Config, ctl: Controller) -> None:
         super().__init__("Conecta el iPhone",
-                         "Con cable USB va el doble de fino que por WiFi.")
+                         "Tu móvil hace de cámara. El vídeo va directo a este "
+                         "PC por tu WiFi: no pasa por internet.")
         self.cfg = cfg
         self.ctl = ctl
-        self._ok = False
+        self._connected = False
 
-        steps = Card("Tres cosas")
-        for i, text in enumerate([
-            "Instala <b>iVCam</b> en el iPhone y en el PC (e2esoft.com/ivcam).",
-            "Conecta el móvil por cable, desbloquéalo y pulsa «Confiar».",
-            "Abre iVCam en el móvil y luego en el PC: deberías verte.",
+        pasos = Card("Cómo se hace")
+        for i, texto in enumerate([
+            "El móvil y el PC, en la <b>misma red</b>. Las redes de invitados "
+            "no valen: aíslan los dispositivos entre sí.",
+            "Abre la <b>cámara del iPhone</b>, apúntala al código y toca el "
+            "aviso que sale.",
+            "Safari dirá que la conexión no es privada. Es lo esperado: el "
+            "certificado lo firma tu propio PC y no sale de casa. Pulsa "
+            "<b>Mostrar detalles</b> y luego <b>Visitar este sitio web</b>.",
+            "Dale permiso a la cámara y elige <b>1080p</b>.",
         ], 1):
-            row = QHBoxLayout()
-            row.setSpacing(12)
+            fila = QHBoxLayout()
+            fila.setSpacing(12)
             n = label(str(i), "mono", wrap=False)
             n.setFixedWidth(16)
-            row.addWidget(n)
-            row.addWidget(label(text), 1)
-            steps.add_layout(row)
-        self.lay.addWidget(steps)
+            fila.addWidget(n)
+            fila.addWidget(label(texto), 1)
+            pasos.add_layout(fila)
+        self.lay.addWidget(pasos)
 
-        pick = Card("Cámara")
-        row = QHBoxLayout()
-        row.setSpacing(10)
-        self.combo = QComboBox()
-        self.combo.setMinimumWidth(280)
-        row.addWidget(self.combo, 1)
-        self.btn_scan = QPushButton("Buscar")
-        self.btn_scan.setProperty("role", "primary")
-        self.btn_scan.clicked.connect(self.scan)
-        row.addWidget(self.btn_scan)
-        pick.add_layout(row)
-
-        status = QHBoxLayout()
-        self.dot = Dot("border_strong", 10)
-        status.addWidget(self.dot)
-        self.status = label("Pulsa Buscar cuando iVCam esté abierto.", "dim")
-        status.addWidget(self.status, 1)
-        pick.add_layout(status)
-        self.lay.addWidget(pick)
+        # El mismo panel que el escritorio: QR, codigo, estado y el aviso del
+        # cortafuegos. Se refresca solo, asi que aqui no hay nada que mantener.
+        # la nota al pie del panel repite los pasos de arriba: alli sobra
+        self.panel = AirLinkPanel(ctl, show_help=False)
+        self.lay.addWidget(self.panel)
         self.lay.addStretch(1)
 
+        self._vigila = QTimer(self)
+        self._vigila.setInterval(400)
+        self._vigila.timeout.connect(self._comprobar)
+
     def on_enter(self) -> None:
-        if not self._ok:
-            QTimer.singleShot(350, self.scan)
-
-    def scan(self) -> None:
-        if not self.btn_scan.isEnabled():
-            return
-        self.btn_scan.setEnabled(False)
-        self.status.setText("Buscando cámaras…")
-        self.dot.set_token("warn")
-        QTimer.singleShot(60, self._do_scan)
-
-    def _do_scan(self) -> None:
-        indices = list_camera_indices(6)
-        names = list_camera_names()
-        self.combo.clear()
-        for i in indices:
-            name = names[i] if i < len(names) else f"Cámara {i}"
-            self.combo.addItem(f"{i} · {name}", i)
-
-        if not indices:
-            self.status.setText(
-                "No se ve ninguna cámara. Comprueba que iVCam está abierto en el "
-                "móvil y en el PC, y que el cable está bien conectado.")
-            self.dot.set_token("danger")
-            self._ok = False
-        else:
-            for row in range(self.combo.count()):
-                if "ivcam" in self.combo.itemText(row).lower():
-                    self.combo.setCurrentIndex(row)
-                    break
-            self.status.setText(f"Listo · {self.combo.currentText()}")
-            self.dot.set_token("ok")
-            self._ok = True
-        self.btn_scan.setEnabled(True)
-        self.ready_changed.emit()
+        if not self.ctl.airlink.running:
+            self.ctl.airlink.start()
+        self._vigila.start()
+        self._comprobar()
 
     def on_leave(self) -> None:
-        if self.combo.count():
-            self.cfg.camera.index = int(self.combo.currentData())
-            self.cfg.camera.source_type = "index"
-            self.cfg.camera.friendly_name = self.combo.currentText()
-            self.cfg.save()
-            self.ctl.restart_camera()
+        self._vigila.stop()
+        # Lo esencial: la camara queda en AirLink. Nunca en "index".
+        self.cfg.camera.source_type = "airlink"
+        self.cfg.camera.friendly_name = "AirLink"
+        self.cfg.save()
+
+    def _comprobar(self) -> None:
+        link = self.ctl.airlink
+        ok = bool(link.phone_connected
+                  and link.frames_received > self._MIN_FRAMES)
+        if ok != self._connected:
+            self._connected = ok
+            self.ready_changed.emit()
 
     def can_advance(self) -> bool:
-        return self._ok
+        return self._connected
+
+    def next_label(self) -> str:
+        return "Continuar" if self._connected else "Esperando al móvil…"
 
 
 # ---------------------------------------------------------------- 2. encuadre

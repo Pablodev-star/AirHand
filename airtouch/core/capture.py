@@ -94,9 +94,10 @@ class CaptureThread(threading.Thread):
 
             if not cap.isOpened():
                 self.error = (
-                    "No se pudo abrir la camara. Comprueba que iVCam esta abierto "
-                    "en el movil y en el PC, y que ninguna otra app la esta usando "
-                    "(Zoom, Teams, Chrome, otra copia de AirTouch...)."
+                    "No se pudo abrir la camara del sistema. Comprueba que "
+                    "ninguna otra app la este usando (Zoom, Teams, Chrome, otra "
+                    "copia de AirTouch...). Si querias usar el movil, cambia el "
+                    "origen a AirLink en Ajustes."
                 )
                 cap.release()
                 return False

@@ -91,7 +91,7 @@ class SettingsPanel(QWidget):
 
         self.source = QComboBox()
         self.source.addItems(["AirLink · iPhone por WiFi (recomendado)",
-                              "Cámara del sistema (webcam o iVCam)",
+                              "Cámara del sistema (webcam o app virtual)",
                               "Stream por URL"])
         self.source.setCurrentIndex(
             {"airlink": 0, "index": 1, "url": 2}.get(cfg.source_type, 0))
