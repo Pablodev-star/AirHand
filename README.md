@@ -111,8 +111,18 @@ Compilar:
 .venv\Scripts\python.exe build.py
 ```
 
-Publicar: ver [airhand-web/RELEASING.md](airhand-web/RELEASING.md). Resumen:
-subir una etiqueta `v*` compila y publica sola.
+Comprobar una instalación (visión, modelos, web y red, sin abrir la interfaz):
+
+```bat
+AirTouch.exe --selftest
+```
+
+Publicar una versión — un solo comando; ver
+[airhand-web/RELEASING.md](airhand-web/RELEASING.md):
+
+```bat
+.venv\Scripts\python.exe release.py 1.1.0
+```
 
 ## Limitaciones conocidas
 

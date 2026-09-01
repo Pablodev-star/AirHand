@@ -6,36 +6,42 @@ dos preguntan a la API de GitHub en lugar de tener URLs escritas a mano.
 
 ## El proceso
 
-1. Sube el número de versión en `airtouch/version.py`:
+Un solo comando:
 
-   ```python
-   __version__ = "1.1.0"
-   ```
+```bat
+.venv\Scripts\python.exe release.py 1.1.0
+```
 
-2. Confirma y sube la etiqueta:
+Eso comprueba que el árbol está limpio, que estás en `main` y sincronizado,
+que la versión avanza, pasa las pruebas, sube el número en `version.py`,
+confirma, etiqueta y empuja. Si algo no cuadra, se planta antes de tocar nada.
 
-   ```bash
-   git add -A
-   git commit -m "Versión 1.1.0"
-   git tag v1.1.0
-   git push origin main --tags
-   ```
+Luego GitHub Actions:
 
-3. Ya está. GitHub Actions:
-   - clona AirLink (que vive en su propio repositorio) dentro de `airlink-web/`
-   - instala las dependencias
-   - **pasa las pruebas** — si fallan, no se publica nada
-   - compila con PyInstaller
-   - comprueba que el ejecutable y el `.zip` existen
-   - crea la publicación con el `.zip` adjunto
+- clona AirLink (vive en su propio repositorio) dentro de `airlink-web/`
+- **comprueba que la etiqueta coincide con `version.py`**
+- pasa las pruebas del motor y del asistente
+- compila con PyInstaller
+- **ejecuta `--selftest` sobre el binario recién hecho**
+- publica el `.zip` solo si todo lo anterior fue bien
 
-En unos minutos, la página de instalación ofrecerá la descarga nueva y quien
-tenga la aplicación abierta verá el aviso de actualización.
+En unos minutos, la página de instalación ofrece la descarga nueva y quien
+tenga la aplicación abierta ve el aviso de actualización. Ninguna de las dos
+cosas hay que tocarla: preguntan a la API de GitHub.
+
+### Por qué se comprueba la etiqueta
+
+El nombre del `.zip` sale de `version.py`, pero lo que dispara la publicación
+es la etiqueta. Etiquetar `v1.1.0` sin subir el número publicaba una versión
+`v1.1.0` que contenía un `AirHand-1.0.0-win64.zip`: quien la descargase se
+llevaba el binario viejo creyendo que era el nuevo, sin un solo error por
+ninguna parte. `release.py` lo hace imposible y el flujo lo verifica igual,
+por si alguien etiqueta a mano.
 
 ## Publicar a mano
 
-Si prefieres no usar etiquetas: **Actions → Compilar y publicar → Run
-workflow**, y escribe la etiqueta.
+Si prefieres no usar el script: **Actions → Compilar y publicar → Run
+workflow**, y escribe la etiqueta. La comprobación de versión sigue activa.
 
 Y si quieres compilar en tu equipo:
 
