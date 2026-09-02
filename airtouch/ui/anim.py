@@ -1,113 +1,40 @@
-"""Utilidades de animacion.
+"""Compatibilidad: el vocabulario de animacion de la 1.x apuntando a motion.py.
 
-Dos familias:
+Mientras siga viva la interfaz vieja (``dashboard.py``, ``widgets.py`` y
+``wizard/wizard.py``) estos nombres se importan desde aqui. ``Smooth``, ``fade``,
+``tween`` y ``ease`` estaban duplicados palabra por palabra con los de
+``motion``: la copia se ha borrado y lo que queda son alias. Dos suavizados
+distintos en la misma ventana es como empieza a desencajarse una interfaz, y
+ademas un arreglo en uno no llegaba nunca al otro.
 
-* **Qt puro** (``QPropertyAnimation``) para opacidad y geometria de widgets.
-* **Suavizado por frame** (``Smooth``) para valores que se pintan a mano, donde
-  animar con Qt seria un lio: barras, agujas, indicadores. Es interpolacion
-  exponencial, asi que da igual el framerate.
+Con cuerpo propio quedan solo ``AnimatedStack`` y ``shake``, que la 2.0 no
+hereda: la transicion de pagina pasa a ser el patron 6 de la spec (escala con
+QTransform en el paintEvent del contenedor, no un efecto por hijo). Se van con
+el resto de esta capa.
 """
 from __future__ import annotations
 
 import math
-import time
-from typing import Callable
 
 from PySide6.QtCore import (
-    QAbstractAnimation, QEasingCurve, QParallelAnimationGroup, QPoint,
-    QPropertyAnimation, QVariantAnimation, Qt,
+    QAbstractAnimation, QParallelAnimationGroup, QPoint, QPropertyAnimation,
+    QVariantAnimation, Qt,
 )
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QStackedWidget, QWidget
 
-# curvas que usamos en toda la app, para que todo se mueva igual
-EASE_OUT = QEasingCurve.Type.OutCubic
-EASE_IN_OUT = QEasingCurve.Type.InOutCubic
-EASE_SPRING = QEasingCurve.Type.OutBack
+from .motion import (
+    EASE_GLASS, EASE_LIFT, EASE_SOFT, ELEMENT, HOVER_IN, STAGGER_DUR, Smooth,
+    ease, fade, tween,
+)
 
-FAST = 160
-NORMAL = 240
-SLOW = 380
-
-
-class Smooth:
-    """Valor que persigue a un objetivo con constante de tiempo fija."""
-
-    __slots__ = ("value", "target", "tau", "_t")
-
-    def __init__(self, value: float = 0.0, tau: float = 0.14) -> None:
-        self.value = value
-        self.target = value
-        self.tau = tau
-        self._t = time.perf_counter()
-
-    def set(self, target: float) -> None:
-        self.target = target
-
-    def jump(self, value: float) -> None:
-        self.value = self.target = value
-
-    def step(self, now: float | None = None) -> float:
-        now = now if now is not None else time.perf_counter()
-        dt = min(max(now - self._t, 0.0), 0.1)
-        self._t = now
-        if self.tau <= 0:
-            self.value = self.target
-        else:
-            a = 1.0 - math.exp(-dt / self.tau)
-            self.value += (self.target - self.value) * a
-        return self.value
-
-    @property
-    def settled(self) -> bool:
-        return abs(self.target - self.value) < 1e-3
-
-
-def fade(widget: QWidget, start: float, end: float, duration: int = NORMAL,
-         on_done: Callable[[], None] | None = None) -> QPropertyAnimation:
-    """Anima la opacidad de un widget.
-
-    Al llegar a opacidad plena se retira el efecto: un QGraphicsEffect activo
-    cuesta rendimiento y ademas impide que el widget aparezca en capturas.
-    """
-    effect = widget.graphicsEffect()
-    if not isinstance(effect, QGraphicsOpacityEffect):
-        effect = QGraphicsOpacityEffect(widget)
-        widget.setGraphicsEffect(effect)
-    effect.setOpacity(start)
-
-    anim = QPropertyAnimation(effect, b"opacity", widget)
-    anim.setDuration(duration)
-    anim.setStartValue(start)
-    anim.setEndValue(end)
-    anim.setEasingCurve(EASE_OUT)
-
-    def _cleanup() -> None:
-        if end >= 0.999:
-            try:
-                widget.setGraphicsEffect(None)
-            except RuntimeError:
-                pass
-        if on_done is not None:
-            on_done()
-
-    anim.finished.connect(_cleanup)
-    widget._fade_anim = anim  # type: ignore[attr-defined]
-    anim.start(QAbstractAnimation.DeletionPolicy.KeepWhenStopped)
-    return anim
-
-
-def tween(start: float, end: float, duration: int,
-          on_value: Callable[[float], None], parent: QWidget | None = None,
-          curve: QEasingCurve.Type = EASE_OUT) -> QVariantAnimation:
-    """Interpola un numero y llama a on_value en cada paso."""
-    anim = QVariantAnimation(parent)
-    anim.setStartValue(float(start))
-    anim.setEndValue(float(end))
-    anim.setDuration(duration)
-    anim.setEasingCurve(curve)
-    anim.valueChanged.connect(lambda v: on_value(float(v)))
-    anim.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
-    return anim
+# nombres viejos -> vocabulario de la 2.0. Los tres duraciones sueltas de la 1.x
+# (160/240/380) resultaron ser tres constantes que la spec ya nombra.
+EASE_OUT = EASE_GLASS
+EASE_IN_OUT = EASE_SOFT
+EASE_SPRING = EASE_LIFT
+FAST = HOVER_IN        # 160 ms: el alzado de lamina del patron 3
+NORMAL = ELEMENT       # 200 ms
+SLOW = STAGGER_DUR     # 380 ms
 
 
 class AnimatedStack(QStackedWidget):
@@ -194,10 +121,8 @@ def shake(widget: QWidget, amplitude: int = 7, duration: int = 320) -> None:
     widget._shake_anim = anim  # type: ignore[attr-defined]
 
 
-def ease(t: float, curve: QEasingCurve.Type = EASE_OUT) -> float:
-    return QEasingCurve(curve).valueForProgress(max(0.0, min(1.0, t)))
-
-
+# Qt viaja en esta lista desde la 1.x: hay modulos que lo toman de aqui en vez
+# de importarlo de QtCore. Se quita cuando caiga la interfaz vieja, no antes.
 __all__ = [
     "Smooth", "AnimatedStack", "fade", "tween", "shake", "ease",
     "EASE_OUT", "EASE_IN_OUT", "EASE_SPRING", "FAST", "NORMAL", "SLOW", "Qt",

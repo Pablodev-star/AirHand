@@ -49,12 +49,15 @@ EASE_EXIT = QEasingCurve(QEasingCurve.Type.InQuad)
 
 MICRO_IN, MICRO_OUT = 120, 90          # hover, pulsacion, perilla, filo
 ELEMENT = 200                          # alzado de lamina, badge, tooltip, chip
+HOVER_IN, HOVER_OUT = 160, 96          # lamina E2->E3 y su vuelta (patron 3)
 SECTION_IN, SECTION_OUT = 340, 200     # cambio de pagina del panel
 SECTION_OVERLAP = 120                  # la entrante arranca antes de irse la otra
 HERO = 520                             # pagina del asistente, tarjeta a pagina
 CELEBRATION = 900
 SWEEP = 620                            # barrido especular
 BREATH = 3200                          # respiracion del Nucleo
+PAUSE_HINT = 1600                      # aviso de pausa
+LAMP = 3600                            # lampara del overlay
 DRIFT_MIN, DRIFT_MAX = 8000, 14000     # deriva de las manchas del lienzo
 
 STAGGER_STEP = 45                      # retardo entre hijos
@@ -86,6 +89,12 @@ HZ_STATS = 4      # agregados de estadisticas
 
 _REDUCE = False
 
+# 5.6 dice "todas las duraciones x 0.35" y "se respeta en todas las animaciones
+# sin excepcion", asi que el factor lo comparten la tabla de duraciones y las
+# constantes de tiempo de Smooth: si solo se encogiera lo primero, los medidores
+# seguirian tardando lo mismo en cruzar y el ahorro se notaria a medias
+REDUCE_FACTOR = 0.35
+
 
 def set_reduce_motion(value: bool) -> None:
     """Lo llama la aplicacion al arrancar y al cambiar ``cfg.ui.reduce_motion``."""
@@ -99,7 +108,7 @@ def reduce_motion() -> bool:
 
 def dur(ms: int) -> int:
     """Duracion efectiva. Con reduce_motion todo se encoge al 35 %."""
-    return max(1, int(ms * 0.35)) if _REDUCE else int(ms)
+    return max(1, int(ms * REDUCE_FACTOR)) if _REDUCE else int(ms)
 
 
 def exit_of(ms_in: int) -> int:
@@ -221,8 +230,12 @@ class Beat(QObject):
                 muertos.append(seat)
                 continue
             busy = busy or seat.busy
-        for seat in muertos:
-            self._seats.remove(seat)
+        if muertos:
+            # no vale remove(): un tick puede haber llamado a leave() y haber
+            # sacado ya ese mismo asiento (una tarjeta que oculta a sus hijos lo
+            # hace). El ValueError salia del slot del QTimer, y ante una
+            # excepcion en un slot PySide6 aborta el proceso entero
+            self._seats = [s for s in self._seats if s not in muertos]
 
         if self._timer is None:
             return
@@ -289,6 +302,11 @@ class Smooth:
 
     Interpolacion exponencial, asi que da igual el framerate: el mismo recorrido
     a 30 y a 144 fps.
+
+    ``tau`` es el ajuste del disenyo; el recorrido real lo encoge reduce_motion
+    igual que a las duraciones. Un medidor de fps con tau 0.28 tarda casi un
+    segundo en cruzar, y con reduce_motion activo eso es justo lo que el usuario
+    ha pedido no ver.
     """
 
     __slots__ = ("value", "target", "tau", "_t")
@@ -309,10 +327,11 @@ class Smooth:
         now = now if now is not None else time.perf_counter()
         dt = min(max(now - self._t, 0.0), 0.1)
         self._t = now
-        if self.tau <= 0:
+        tau = self.tau * REDUCE_FACTOR if _REDUCE else self.tau
+        if tau <= 0:
             self.value = self.target
         else:
-            a = 1.0 - math.exp(-dt / self.tau)
+            a = 1.0 - math.exp(-dt / tau)
             self.value += (self.target - self.value) * a
         return self.value
 
@@ -503,7 +522,7 @@ class SpecularSweep:
 
 
 # --------------------------------------------------------------------------- #
-# animacion de widgets (lo que absorbe de anim.py)
+# animacion de widgets (absorbido de anim.py, que ahora solo reexporta)
 # --------------------------------------------------------------------------- #
 
 def fade(widget: QWidget, start: float, end: float, duration: int = ELEMENT,
@@ -561,12 +580,14 @@ def tween(start: float, end: float, duration: int,
 __all__ = [
     "Beat", "beat", "Ticker", "Smooth", "Spring", "Stagger", "SpecularSweep",
     "EASE_GLASS", "EASE_SOFT", "EASE_LIFT", "EASE_EXIT", "ease",
-    "MICRO_IN", "MICRO_OUT", "ELEMENT", "SECTION_IN", "SECTION_OUT",
-    "SECTION_OVERLAP", "HERO", "CELEBRATION", "SWEEP", "BREATH",
+    "MICRO_IN", "MICRO_OUT", "ELEMENT", "HOVER_IN", "HOVER_OUT",
+    "SECTION_IN", "SECTION_OUT", "SECTION_OVERLAP", "HERO", "CELEBRATION",
+    "SWEEP", "BREATH", "PAUSE_HINT", "LAMP",
     "DRIFT_MIN", "DRIFT_MAX", "STAGGER_STEP", "STAGGER_DUR", "STAGGER_MAX",
     "STAGGER_RISE", "HZ_FULL", "HZ_GLOW", "HZ_CANVAS", "HZ_STATS",
     "TAU_MINIMAP", "TAU_PINCH", "TAU_CATAPULT", "TAU_METER", "TAU_MODE_COLOR",
     "TAU_RING", "TAU_HISTOGRAM", "TAU_DONUT", "TAU_CAPSULE", "TAU_CURSOR",
     "TAU_OVERLAY_PINCH", "TAU_WINDOW_BAR", "TAU_KEYBOARD",
-    "dur", "exit_of", "reduce_motion", "set_reduce_motion", "fade", "tween",
+    "dur", "exit_of", "reduce_motion", "set_reduce_motion", "REDUCE_FACTOR",
+    "fade", "tween",
 ]
