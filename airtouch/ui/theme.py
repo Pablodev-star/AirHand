@@ -29,8 +29,9 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor
 
 from ..gestures.events import Mode
-from .tokens import (TOKENS, CanvasTokens, ColorTokens, EdgeTokens, Elevation,
-                     GlassTokens, Ink, ShadowTokens, TextTokens, Tokens, _rgb)
+from .tokens import (FAMILY_MONO, FAMILY_TEXT, TOKENS, CanvasTokens,
+                     ColorTokens, EdgeTokens, Elevation, GlassTokens, Ink,
+                     ShadowTokens, TextTokens, Tokens, _rgb)
 
 
 # ------------------------------------------------------------------ utilidades
@@ -259,6 +260,28 @@ def qcolor(token: str, alpha: int | None = None) -> QColor:
 
 
 # ---------------------------------------------------------------- hoja de estilo
+def _familias_qss() -> tuple[str, str]:
+    """Las familias que ``tipo.py`` ha resuelto de verdad, no las nominales.
+
+    Escribir aqui "Segoe UI Variable Text" parecia inofensivo y no lo es: en
+    este equipo esa familia no existe (Windows 11 instala la variable con eje de
+    talla optica y Qt la lista como "Segoe UI Variable" a secas), asi que Qt se
+    caia a "Segoe UI" solo en los mandos peinados por la hoja de estilo. El
+    resultado eran dos tipografias distintas en la misma ventana: la variable en
+    todo lo que pinta ``tipo.py`` y la estatica en los QComboBox y los QLineEdit.
+
+    El import es perezoso porque ``tipo.familias()`` interroga a QFontDatabase y
+    exige una QApplication viva; ``qss()`` no la exigia antes y no va a empezar.
+    """
+    from . import tipo
+
+    try:
+        f = tipo.familias()
+    except RuntimeError:
+        return FAMILY_TEXT, FAMILY_MONO
+    return f.text, f.mono
+
+
 def qss() -> str:
     """Familia y colores base. Nada mas.
 
@@ -268,20 +291,21 @@ def qss() -> str:
     los colores del sistema sobre el lienzo.
     """
     c = C
+    familia, familia_mono = _familias_qss()
     return f"""
 * {{ outline: none; }}
 
 QWidget {{
     background: transparent;
     color: {c.text};
-    font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    font-family: "{familia}", "Segoe UI", sans-serif;
 }}
 QMainWindow, QDialog {{ background: {c.bg}; }}
 
 QLabel {{ background: transparent; }}
 QLabel[role="h3"], QLabel[role="faint"] {{ color: {c.text_faint}; }}
 QLabel[role="dim"] {{ color: {c.text_dim}; }}
-QLabel[role="mono"] {{ font-family: "Cascadia Mono", Consolas, monospace; }}
+QLabel[role="mono"] {{ font-family: "{familia_mono}", Consolas, monospace; }}
 
 QFrame[role="card"] {{ background: {c.surface}; }}
 QFrame[role="inset"] {{ background: {c.surface_sunken}; }}
@@ -334,7 +358,7 @@ QPlainTextEdit, QTextEdit {{
     background: {c.surface_sunken};
     border: 1px solid {c.border};
     color: {c.text_dim};
-    font-family: "Cascadia Mono", Consolas, monospace;
+    font-family: "{familia_mono}", Consolas, monospace;
     selection-background-color: {c.accent};
 }}
 

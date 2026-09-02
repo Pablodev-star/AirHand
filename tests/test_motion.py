@@ -441,6 +441,55 @@ def test_smooth_converge() -> None:
     print("  OK  Smooth converge y da igual el framerate")
 
 
+def test_integradores_aguantan_el_paso_de_la_compuerta_lenta() -> None:
+    """Un paso de 250 ms de la compuerta de 4 Hz tiene que integrarse entero.
+
+    Es la costura entre 5.1 y 5.3, y por eso no la veia ninguna prueba de una
+    sola pieza: el recorte de dt estaba en 0.1 s, asi que un medidor de fps
+    (tau 0.28, que la spec pone justo en la compuerta de estadisticas) se comia
+    el 60 % de cada paso y tardaba 2.5 s en cruzar en vez de 1.
+    """
+    assert motion.MAX_STEP >= 1.0 / motion.HZ_STATS, \
+        "el techo de integracion no puede ser menor que el paso de la compuerta mas lenta"
+
+    rapido = motion.Smooth(0.0, tau=motion.TAU_METER)
+    t0 = sincronizar(rapido)
+    rapido.set(1.0)
+    for i in range(1, 63):                              # 1 s a 60 Hz
+        rapido.step(t0 + i * MARCO)
+
+    lento = motion.Smooth(0.0, tau=motion.TAU_METER)
+    t0 = sincronizar(lento)
+    lento.set(1.0)
+    for i in range(1, 5):                               # el mismo segundo a 4 Hz
+        lento.step(t0 + i * 0.25)
+
+    assert abs(rapido.value - lento.value) < 0.02, \
+        f"el mismo segundo da {rapido.value:.4f} a 60 Hz y {lento.value:.4f} a 4 Hz"
+
+    # y el muelle igual: mismo destino en el mismo tiempo, vaya en la compuerta
+    # que vaya
+    s60 = motion.Spring(0.0)
+    s60.set(1.0)
+    for _ in range(60):
+        s60.step(1.0 / 60.0)
+    s4 = motion.Spring(0.0)
+    s4.set(1.0)
+    for _ in range(4):
+        s4.step(0.25)
+    assert abs(s60.value - s4.value) < 0.02, \
+        f"Spring llega a {s60.value:.4f} a 60 Hz y a {s4.value:.4f} a 4 Hz"
+
+    # un tiron de verdad (ventana arrastrada, depurador) si se recorta: mas vale
+    # comerse el salto que dar un brinco en pantalla
+    tiron = motion.Smooth(0.0, tau=0.05)
+    t0 = sincronizar(tiron)
+    tiron.set(1.0)
+    tiron.step(t0 + 5.0)
+    assert tiron.value < 1.0, "un salto de 5 s no puede integrarse entero"
+    print("  OK  los integradores aguantan el paso de 250 ms de la compuerta de 4 Hz")
+
+
 def test_smooth_reduce_motion() -> None:
     def recorrido(reducido: bool) -> float:
         motion.set_reduce_motion(reducido)
@@ -548,6 +597,7 @@ def main() -> int:
         test_spring_conserva_velocidad,
         test_spring_reduce_motion,
         test_smooth_converge,
+        test_integradores_aguantan_el_paso_de_la_compuerta_lenta,
         test_smooth_reduce_motion,
         test_duraciones_y_curvas,
         test_stagger,

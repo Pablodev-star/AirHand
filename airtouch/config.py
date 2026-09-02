@@ -204,6 +204,9 @@ class SafetyConfig:
 class UIConfig:
     theme: str = "system"               # "system" | "light" | "dark"
     reduce_motion: bool = False
+    # backdrop del sistema. Apagado: en Windows 10 falla y la direccion no
+    # depende de el, el lienzo pintado es el camino principal
+    mica: bool = False
     overlay_enabled: bool = True
     show_cursor: bool = True
     show_hud: bool = True

@@ -342,15 +342,20 @@ def _elevations(edge: EdgeTokens, sh: ShadowTokens,
         # la especificacion solo redefine la sombra principal de E3; la ambiente
         # se hereda de E2 para que el contacto con el fondo no cambie al pasar
         # el raton por encima
+        # E3 y E4 tambien pasan por s(): el apartado 3.6 dice "todos" los
+        # desenfoques y desplazamientos al 60 % en claro, sin excepciones.
+        # Construidas a pelo se quedaban con la geometria oscura y en claro
+        # E4 proyectaba una sombra de 64 px desplazada 22 sobre fondo blanco,
+        # que es exactamente el "ensuciar" que prohibe el apartado 11.3.
         "E3": Elevation("E3", "raised",
                         edge_tl=edge.light.scaled(_LIFT_E3), edge_br=edge.dark,
-                        shadows=(Shadow("key", 44, 5, 14, key), e2_shadows[1]),
+                        shadows=(s("key", 44, 5, 14, key), e2_shadows[1]),
                         scale=1.008),
         # la segunda sombra de E4 es corta y apretada: es la que la "pega"
         "E4": Elevation("E4", "float_",
                         edge_tl=edge.light.scaled(_LIFT_E4), edge_br=edge.dark,
-                        shadows=(Shadow("key", 64, 0, 22, key.at(0.55)),
-                                 Shadow("key", 8, 0, 3, key.at(0.40)))),
+                        shadows=(s("key", 64, 0, 22, key.at(_E4_KEY * key.alpha)),
+                                 s("key", 8, 0, 3, key.at(_E4_TIGHT * key.alpha)))),
     }
 
 
@@ -372,7 +377,13 @@ _DARK_GLASS = GlassTokens(
     # hover no esta en el apartado 3: hace falta un escalon plano para el QSS.
     # Se extrapola linealmente del par wash/raised que si esta (+0.035 de alfa)
     hover=Surface(Ink("#FFFFFF", 0.130), "#282D3C"),
-    float_=Surface(Ink("#161921", 0.78), "#1C2029"),
+    # E4 es el nivel flotante: barra de navegacion, menus, el dialogo del
+    # asistente, la capsula del overlay. Tiene que leerse como lo mas
+    # cercano, y con Ink("#161921", 0.78) salia (19,22,29): la lamina MAS
+    # OSCURA de las tres, un agujero que solo salvaba la sombra. La
+    # especificacion se contradecia a si misma en este valor (daba tres
+    # numeros distintos); se toma el de su formula, blanco incluido.
+    float_=Surface(Ink("#2D3037", 0.798), "#26292F"),
     sunken=Surface(Ink("#000000", 0.28), "#070910"),
 )
 
@@ -420,21 +431,31 @@ DARK = Tokens(
 # ------------------------------------------------------------------ paleta clara
 # El claro no es la oscura invertida. Las sombras se acortan y se enfrian, y el
 # filo que de verdad separa pasa a ser el oscuro de abajo-derecha.
+# El lienzo claro baja de #EEF0F6 a #E4E7F0 a proposito. En claro no hay
+# recorrido por encima del blanco, asi que el sitio para la rampa de
+# elevaciones se saca por abajo: fondo mas bajo, laminas donde estaban. Con el
+# fondo anterior el escalon lienzo-lamina quedaba en 1,5 % y una tarjeta E2
+# apenas se despegaba del fondo.
 _LIGHT_CANVAS = CanvasTokens(
-    base="#EEF0F6",
-    light=Blob(Ink("#FFFFFF", 0.70), cx=0.18, cy=0.10, radius=0.62),
-    cool=Blob(Ink("#DCE0EC", 0.55), cx=0.86, cy=0.92, radius=0.58),
-    tint=Blob(Ink("#E4ECF7", 0.40), cx=0.98, cy=0.52, radius=0.44),
+    base="#E4E7F0",
+    light=Blob(Ink("#FFFFFF", 0.52), cx=0.18, cy=0.10, radius=0.62),
+    cool=Blob(Ink("#CFD5E4", 0.55), cx=0.86, cy=0.92, radius=0.58),
+    tint=Blob(Ink("#DBE5F5", 0.40), cx=0.98, cy=0.52, radius=0.44),
     vignette=None,          # una vinneta en claro solo ensucia la esquina
 )
 
 _LIGHT_GLASS = GlassTokens(
-    # el escalon de luminancia entre lienzo y vidrio es del 4 %: es lo minimo
-    # para que una lamina se lea sin linea divisoria
-    wash=Surface(Ink("#FFFFFF", 0.72), "#F7F8FC"),
-    raised=Surface(Ink("#FFFFFF", 0.88), "#FCFDFF"),
-    hover=Surface(Ink("#0F172A", 0.035), "#E6E8EE"),
-    float_=Surface(Ink("#FFFFFF", 0.94), "#FEFEFE"),
+    # En claro NO hay recorrido por encima del blanco. Con la rampa del oscuro
+    # (mas blanco segun sube el nivel) E2, E3 y E4 salian 254/253/254: el mismo
+    # blanco, y solo la sombra los separaba. Medido a ojo: E3 y E4
+    # indistinguibles. Asi que aqui la rampa se INVIERTE: las laminas bajas se
+    # dejan tenir por el lienzo y solo la flotante llega a blanco puro. El
+    # recorrido se gana bajando el LIENZO, no las laminas: bajarlas acercaba
+    # E2 al fondo y una tarjeta dejaba de despegarse.
+    wash=Surface(Ink("#FFFFFF", 0.74), "#F4F6FA"),
+    raised=Surface(Ink("#FFFFFF", 0.90), "#FBFCFE"),
+    hover=Surface(Ink("#0F172A", 0.035), "#D8DCE8"),
+    float_=Surface(Ink("#FFFFFF", 1.0), "#FFFFFF"),
     # nada de pozos oscuros dentro de tarjetas claras
     sunken=Surface(Ink("#0F172A", 0.045), "#E7EAF1"),
 )

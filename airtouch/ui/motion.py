@@ -87,6 +87,15 @@ HZ_GLOW = 20      # respiraciones y glows
 HZ_CANVAS = 10    # lienzo
 HZ_STATS = 4      # agregados de estadisticas
 
+# Techo de un paso de integracion. Es exactamente el periodo de la compuerta mas
+# lenta (4 Hz = 250 ms): por debajo de este valor todo lo que llega es un paso
+# legitimo del latido y hay que integrarlo entero; por encima solo puede ser un
+# tiron (arrastre de la ventana, depurador, equipo que despierta) y ahi conviene
+# comerse el salto antes que dar un brinco en pantalla. Estaba en 0.1 s, que se
+# tragaba el 60 % de cada paso de un cliente a 4 Hz: un medidor de fps (tau 0.28)
+# sobre la compuerta de estadisticas cruzaba en 2.5 s en vez de en 1.
+MAX_STEP = 0.25
+
 _REDUCE = False
 
 # 5.6 dice "todas las duraciones x 0.35" y "se respeta en todas las animaciones
@@ -205,7 +214,7 @@ class Beat(QObject):
     # -- reparto ------------------------------------------------------------
     def advance(self, now: float | None = None) -> None:
         now = time.perf_counter() if now is None else now
-        dt = min(max(now - self._last, 0.0), 0.25)
+        dt = min(max(now - self._last, 0.0), MAX_STEP)
         self._last = now
         # media trama de tolerancia: sin ella una compuerta de 60 Hz (16.67 ms)
         # nunca llega a tiempo en un latido de 16 ms y se queda en 30 Hz
@@ -325,7 +334,7 @@ class Smooth:
 
     def step(self, now: float | None = None) -> float:
         now = now if now is not None else time.perf_counter()
-        dt = min(max(now - self._t, 0.0), 0.1)
+        dt = min(max(now - self._t, 0.0), MAX_STEP)
         self._t = now
         tau = self.tau * REDUCE_FACTOR if _REDUCE else self.tau
         if tau <= 0:
@@ -380,7 +389,7 @@ class Spring:
         # subpasos fijos: con dt de 33 ms la integracion explicita amortigua de
         # mas y el muelle se comportaria distinto segun los fps de cada equipo
         zeta = 1.0 if _REDUCE else self.zeta
-        restante = min(max(dt, 0.0), 0.1)
+        restante = min(max(dt, 0.0), MAX_STEP)
         while restante > 1e-9:
             h = min(self.SUBSTEP, restante)
             restante -= h
@@ -589,5 +598,6 @@ __all__ = [
     "TAU_RING", "TAU_HISTOGRAM", "TAU_DONUT", "TAU_CAPSULE", "TAU_CURSOR",
     "TAU_OVERLAY_PINCH", "TAU_WINDOW_BAR", "TAU_KEYBOARD",
     "dur", "exit_of", "reduce_motion", "set_reduce_motion", "REDUCE_FACTOR",
+    "MAX_STEP",
     "fade", "tween",
 ]
