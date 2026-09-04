@@ -29,9 +29,14 @@ from __future__ import annotations
 
 from .base import (FLASH_MS, SHADOW_REACH, Beating, Gap, Inset, Pill, Sheet,
                    ThemeAware, bus, gap_between)
+from .controls import (BIRTH_MS, BIRTH_RISE, DISABLED_ALPHA, RING, Button,
+                       Chip, Field, Phase, Segmented, SettingRow, Slider,
+                       Toggle)
 
 __all__ = [
     "Sheet", "Inset", "Pill", "Gap",
     "ThemeAware", "Beating", "bus", "gap_between",
     "FLASH_MS", "SHADOW_REACH",
+    "Phase", "Toggle", "Button", "Slider", "Segmented", "Field", "SettingRow",
+    "Chip", "DISABLED_ALPHA", "RING", "BIRTH_MS", "BIRTH_RISE",
 ]
