@@ -89,7 +89,10 @@ CAPSULE_R = 22.0
 CAPSULE_MIN_W = 132.0
 #: Tope duro del ancho. El detalle se recorta antes que pasar de aqui, porque de
 #: este numero cuelga la constante de dano y no puede depender del texto.
-CAPSULE_MAX_W = 268.0
+#: A 268 no cabia el detalle mas largo que existe: "MODO SEGURO no se inyecta
+#: nada" salia como "no se inyecta n...". Un aviso truncado es peor que ninguno,
+#: porque parece un fallo. 316 lo deja entero con holgura.
+CAPSULE_MAX_W = 316.0
 CAPSULE_Y = 28.0                # borde superior, arriba y centrada
 #: Desenfoque del halo. El atlas reserva exactamente este margen alrededor de la
 #: forma, asi que es tambien el relleno de la region de dano.

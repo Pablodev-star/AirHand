@@ -82,6 +82,25 @@ def _alfa(color: QColor, alpha: float) -> QColor:
     return c
 
 
+def _anillo(cx: float, cy: float, w: float, h: float,
+            pad: float) -> list[QRect]:
+    """El halo de alrededor de una forma, SIN su interior: cuatro tiras.
+
+    Se usa cuando lo unico que ha cambiado es el resplandor exterior. Devolver
+    la envolvente volveria a incluir el cuerpo, que esta identico, y es
+    exactamente lo que prohibe el apartado 10.1: nunca la envolvente, siempre
+    rectangulos sueltos.
+    """
+    ow, oh = w + 2.0 * pad, h + 2.0 * pad
+    x0, y0 = cx - ow / 2.0, cy - oh / 2.0
+    return [
+        QRect(int(x0), int(y0), int(ow), int(pad)),                  # arriba
+        QRect(int(x0), int(y0 + oh - pad), int(ow), int(pad)),       # abajo
+        QRect(int(x0), int(y0 + pad), int(pad), int(h)),             # izquierda
+        QRect(int(x0 + ow - pad), int(y0 + pad), int(pad), int(h)),  # derecha
+    ]
+
+
 def _px(region: QRegion) -> int:
     """Pixeles que cubre una region. El contador del apartado 10.1.7."""
     # QRegion.rects() es de Qt5. En PySide6 la region se itera directamente, y
@@ -490,6 +509,9 @@ class _Estado(_Elemento):
         self.detalle = ""
         self.cuenta: float | None = None
         self.glow = S.CAPSULE_GLOW_ALPHA
+        # el estado del cuerpo se guarda aparte del halo: ver la region de dano
+        self._cuerpo_prev: tuple = ()
+        self._glow_prev = -1.0
         self._expandir_hasta = 0.0
         self._modo = Mode.IDLE
         self._pausa_desde = 0.0
@@ -571,10 +593,27 @@ class _Estado(_Elemento):
         cy = S.CAPSULE_Y + S.CAPSULE_H / 2.0
         dw = (S.CAPSULE_DAMAGE if w > S.CAPSULE_H + 1.0
               else S.CAPSULE_DAMAGE_SMALL)
-        self.rects = [_caja(cx, cy, dw[0], dw[1])] if self.visible else []
-        self.revisar((kind, round(a, 3), round(w, 1), round(self.texto.value, 2),
-                      round(self.glow, 3), self.color.rgb(),
-                      round(self.cuenta or 0.0, 3), self.detalle))
+
+        # El glow que respira se separa del resto del estado a proposito. Es el
+        # mismo principio que ya aplica la lampara en 10.1.5: cuando lo unico
+        # que cambia es el halo, el CUERPO de la capsula esta identico, asi que
+        # ensuciarla entera es tirar pixeles. Medido: en pausa la capsula queda
+        # sucia dos de cada tres fotogramas, y a caja llena eso son 29,1 kpx
+        # cada vez, que se salia un 30 % del presupuesto del apartado 10.7.
+        # Pintando solo el anillo son 17,3 kpx y entra.
+        cuerpo = (kind, round(a, 3), round(w, 1), round(self.texto.value, 2),
+                  self.color.rgb(), round(self.cuenta or 0.0, 3), self.detalle)
+        glow_q = round(self.glow, 3)
+        solo_halo = (cuerpo == self._cuerpo_prev and glow_q != self._glow_prev)
+        self._cuerpo_prev, self._glow_prev = cuerpo, glow_q
+
+        if not self.visible:
+            self.rects = []
+        elif solo_halo:
+            self.rects = _anillo(cx, cy, w, S.CAPSULE_H, S.CAPSULE_PAD)
+        else:
+            self.rects = [_caja(cx, cy, dw[0], dw[1])]
+        self.revisar(cuerpo + (glow_q,))
 
     def rect_capsula(self, canvas: "OverlayCanvas") -> QRectF:
         w = self.ancho.value
