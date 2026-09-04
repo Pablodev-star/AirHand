@@ -456,8 +456,11 @@ _LIGHT_GLASS = GlassTokens(
     raised=Surface(Ink("#FFFFFF", 0.90), "#FBFCFE"),
     hover=Surface(Ink("#0F172A", 0.035), "#D8DCE8"),
     float_=Surface(Ink("#FFFFFF", 1.0), "#FFFFFF"),
-    # nada de pozos oscuros dentro de tarjetas claras
-    sunken=Surface(Ink("#0F172A", 0.045), "#E7EAF1"),
+    # Nada de pozos oscuros dentro de tarjetas claras, pero 0.045 era
+    # invisible: el canal de un interruptor apagado desaparecia sobre lamina
+    # blanca y solo lo salvaba su contorno de 1 px. Y ese interruptor es el de
+    # "Inyectar clics", el mando mas importante del panel.
+    sunken=Surface(Ink("#0F172A", 0.080), "#DDE1EB"),
 )
 
 _LIGHT_EDGE = EdgeTokens(

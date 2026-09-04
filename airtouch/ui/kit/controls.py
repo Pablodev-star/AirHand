@@ -167,6 +167,38 @@ def _deepest(t: Tokens) -> str:
     return min((t.canvas.base, t.text.primary), key=glass.luminance)
 
 
+#: Caida de luminancia que tiene que producir una pulsacion.
+PRESS_DROP = 0.06
+
+#: Cuanto encoge un mando pulsado. Es el unico canal que funciona igual de bien
+#: en las dos paletas, y por eso lo llevan todos los mandos.
+PRESS_SCALE = 0.03
+
+
+def _sunk(t: Tokens, k: float) -> QColor:
+    """El velo de la pulsacion: el mando se aleja de la luz mientras se aprieta.
+
+    Existe porque «sobre» y «pulsado» salian identicos en el boton normal, en
+    el chip y en el segmentado: los tres pintaban solo el hover, asi que
+    apretarlos no cambiaba un pixel. Un mando que no acusa la pulsacion no
+    tiene retroalimentacion por mucho que el codigo diga que la tiene, y eso se
+    ve en ``tools/galeria.py`` a la primera.
+
+    El alfa **se calcula**, no se escribe, y es la misma trampa que la de los
+    filos: en claro el tono mas hundido es casi negro sobre una lamina casi
+    blanca, y un 0.12 a pelo deja el mando con pinta de deshabilitado; en
+    oscuro ese mismo tono es practicamente el lienzo y el 0.12 no mueve un
+    pixel. Se pide la misma caida de luminancia y sale el alfa de cada paleta.
+    El tope existe porque en oscuro no queda recorrido hacia abajo: por eso la
+    pulsacion lleva ademas ``PRESS_SCALE``, que si funciona en las dos.
+    """
+    hondo = _deepest(t)
+    arriba = glass.luminance(t.glass.raised.solid)
+    abajo = glass.luminance(hondo)
+    alfa = min(0.10, PRESS_DROP / max(0.05, arriba - abajo))
+    return _ink(hondo, alfa * max(0.0, min(1.0, k)))
+
+
 def _contour(p: QPainter, box: QRectF, radius: float, t: Tokens) -> None:
     """El contorno de un mando pequenyo, con el filo dominante reforzado.
 
@@ -361,7 +393,14 @@ class Toggle(_Control):
         p.save()
         p.setClipPath(path)
         if k > 0.0:
-            p.fillRect(box, _ink(t.color.accent, k))
+            acento = t.color.accent
+            if self._hover.value > 0.0:
+                # sobre un canal ya lleno de acento opaco el lavado de hover no
+                # se ve: hay que aclarar el propio acento, como hace el boton
+                # primario. Sin esto un interruptor encendido no tiene hover.
+                acento = theme.mix(acento, theme.C.primary_hover,
+                                   self._hover.value)
+            p.fillRect(box, _ink(acento, k))
         if self._hover.value > 0.0:
             p.fillRect(box, glass.qcolor(
                 t.glass.hover.ink.scaled(self._hover.alpha)))
@@ -556,11 +595,17 @@ class Button(Sheet):
                     t.glass.hover.ink.scaled(max(0.0, min(1.0, k)))))
             return path
         path = super().paint_glass(painter)
+        painter.save()
+        painter.setClipPath(path)
         if self._variant == "primary":
-            painter.save()
-            painter.setClipPath(path)
             painter.fillRect(path.boundingRect(), self._fill(t))
-            painter.restore()
+        elif self._press.value > 0.0:
+            # la lamina no sabe nada de la pulsacion: solo pinta el alzado. Sin
+            # este velo un boton normal pulsado es identico a uno con el raton
+            # encima.
+            painter.fillRect(path.boundingRect(),
+                             _sunk(t, self._press.alpha))
+        painter.restore()
         return path
 
     def paint_content(self, painter: QPainter, rect: QRectF) -> None:
@@ -583,12 +628,14 @@ class Button(Sheet):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         if not self.isEnabled():
             p.setOpacity(DISABLED_ALPHA)
+        s = 1.0 - PRESS_SCALE * self._press.alpha
         if self._birth < 1.0:
             k = ease(self._birth, EASE_GLASS)
             p.setOpacity(p.opacity() * k)
-            c = self.glass_box().center()
-            s = self._birth_scale.value
             p.translate(0.0, BIRTH_RISE * (1.0 - k))
+            s *= self._birth_scale.value
+        if s != 1.0:
+            c = self.glass_box().center()
             p.translate(c)
             p.scale(s, s)
             p.translate(-c)
@@ -955,6 +1002,12 @@ class Segmented(_Control):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         if not self.isEnabled():
             p.setOpacity(DISABLED_ALPHA)
+        if self._press.value > 0.0:
+            s = 1.0 - PRESS_SCALE * self._press.alpha
+            c = box.center()
+            p.translate(c)
+            p.scale(s, s)
+            p.translate(-c)
 
         path = glass.paint_sheet(p, box, "E1", R_FULL, shadows=False, tokens=t,
                                  canvas_origin=self.mapTo(self.window(),
@@ -972,6 +1025,12 @@ class Segmented(_Control):
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawRoundedRect(pill.adjusted(0.5, 0.5, -0.5, -0.5),
                           pill.height() / 2.0, pill.height() / 2.0)
+        if self._press.value > 0.0:
+            # el velo va sobre la pildora y el canal a la vez: quien pulsa no
+            # apunta necesariamente al segmento ya elegido
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(_sunk(t, self._press.alpha))
+            p.drawPath(path)
         p.restore()
         _contour(p, box, R_FULL, t)
 
@@ -1105,7 +1164,7 @@ class SettingRow(ThemeAware, Beating, QWidget):
         self.control = control
         control.setParent(self)
         self._modified = Phase(ELEMENT, MICRO_OUT, EASE_LIFT, EASE_EXIT)
-        alto = max(ROW_HEIGHT, control.sizeHint().height())
+        alto = max(ROW_HEIGHT, control.sizeHint().height(), control.height())
         self.setFixedHeight(int(alto))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -1138,11 +1197,26 @@ class SettingRow(ThemeAware, Beating, QWidget):
 
     # -- geometria ----------------------------------------------------------
     def resizeEvent(self, e) -> None:                       # noqa: N802
+        """Coloca el mando pegado al canto derecho de la fila.
+
+        Un mando de tamanyo fijo por ``setFixedSize`` -- el ``Toggle``, sin ir
+        mas lejos -- **no tiene** ``sizeHint``: ``QWidget`` la devuelve invalida
+        (-1, -1) mientras no lleve un layout dentro. La cuenta antigua miraba
+        solo el ancho, asi que el interruptor caia en la rama del mando que se
+        estira y acababa en mitad de la fila, con una caja de -1 px de alto.
+        Quien decide si un mando se estira es su politica de tamanyo, no que
+        tenga o no ``sizeHint``.
+        """
         s = self.control.sizeHint()
-        ancho = (self.width() // 2 if s.width() <= 0 else s.width())
+        ancho_nat = s.width() if s.width() > 0 else self.control.width()
+        alto_nat = s.height() if s.height() > 0 else self.control.height()
+        estira = self.control.sizePolicy().horizontalPolicy() in (
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding,
+            QSizePolicy.Policy.Ignored)
+        ancho = max(1, self.width() // 2 if estira else ancho_nat)
         self.control.setGeometry(self.width() - ancho,
-                                 (self.height() - s.height()) // 2,
-                                 ancho, s.height())
+                                 (self.height() - alto_nat) // 2,
+                                 ancho, max(1, alto_nat))
         super().resizeEvent(e)
 
     # -- pintado ------------------------------------------------------------
@@ -1287,7 +1361,8 @@ class Chip(_Control):
             p.setOpacity(DISABLED_ALPHA)
 
         box = QRectF(RING, RING, self.width() - 2 * RING, self.HEIGHT)
-        s = max(0.0, min(1.2, self._pop.value))
+        s = (max(0.0, min(1.2, self._pop.value))
+             * (1.0 - PRESS_SCALE * self._press.alpha))
         if s != 1.0:
             c = box.center()
             p.translate(c)
@@ -1303,6 +1378,9 @@ class Chip(_Control):
         if self._hover.value > 0.0:
             p.setBrush(glass.qcolor(
                 t.glass.hover.ink.scaled(self._hover.alpha)))
+            p.drawRoundedRect(box, rad, rad)
+        if self._press.value > 0.0:
+            p.setBrush(_sunk(t, self._press.alpha))
             p.drawRoundedRect(box, rad, rad)
         # el filo del chip: en claro el relleno tenue solo no lo separa de la
         # lamina blanca sobre la que vive

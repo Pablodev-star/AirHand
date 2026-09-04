@@ -46,8 +46,8 @@ from typing import Sequence
 
 import numpy as np
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt
-from PySide6.QtGui import (QColor, QLinearGradient, QPainter, QPainterPath,
-                           QPen, QPixmap)
+from PySide6.QtGui import (QColor, QFontMetricsF, QLinearGradient, QPainter,
+                           QPainterPath, QPen, QPixmap)
 from PySide6.QtWidgets import QWidget
 
 from ..gestures.events import Mode
@@ -71,7 +71,9 @@ __all__ = [
 
 #: Relleno de las areas. En claro baja a 0.36 o el grafico se come el texto.
 AREA_ALPHA_DARK = 0.90
-AREA_ALPHA_LIGHT = 0.36
+# 0.36 dejaba dos series contiguas indistinguibles en claro: en el
+# presupuesto de retardo, "captura" y "resto" salian del mismo gris.
+AREA_ALPHA_LIGHT = 0.55
 
 #: Rejilla: cuatro horizontales y **ninguna vertical** (apartado 8.5.1).
 GRID_LINES = 4
@@ -169,13 +171,59 @@ def draw_grid(p: QPainter, well: QRectF, lo: float, hi: float, *,
         v += paso
     if labels:
         p.setFont(fuente)
-        p.setPen(QColor(theme.C.ink.tertiary))
-        alto = tipo.metrics("axis").height()
+        m = tipo.metrics("axis")
+        alto = m.height()
+        # Placa detras del rotulo. La rejilla vive dentro del pozo y sus
+        # etiquetas caen encima del area rellena en cuanto el dato sube: sin
+        # esto, "40 fps" desaparece justo cuando hay datos que mirar. Donde no
+        # hay relleno el velo no se nota, porque es del color del pozo.
+        velo = QColor(glass.VEIL_DARK if theme.C.dark else glass.VEIL_LIGHT)
+        velo.setAlphaF(velo.alphaF() * 0.5)
         for y, txt in etiquetas:
-            p.drawText(QRectF(well.left() + 4, y - alto - 1, well.width() - 8, alto),
+            caja = QRectF(well.left() + 4, y - alto - 1,
+                          m.horizontalAdvance(txt) + 10, alto)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(velo)
+            p.drawRoundedRect(caja, 3.0, 3.0)
+            p.setPen(QColor(theme.C.ink.tertiary))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawText(caja.adjusted(5, 0, -5, 0),
                        int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
                        txt)
     return paso
+
+
+def place_labels(well: QRectF, items: Sequence[tuple[float, str]],
+                 role: str = "axis", gap: float = 6.0
+                 ) -> list[tuple[float, str]]:
+    """Reparte etiquetas de eje bajo sus marcas sin que se pisen.
+
+    Existe porque p95 y p99 caen casi siempre en el mismo pixel, y dos textos
+    de 10 px superpuestos no son dos etiquetas: son una mancha. Cada una se
+    coloca a la derecha de su marca y, si ahi ya hay otra, se empuja hasta que
+    cabe. La que ya no cabe en el pozo **se cae**, porque media etiqueta encima
+    de otra miente mas que ninguna etiqueta.
+
+    El reparto es de ida y vuelta a proposito. Solo empujando a la derecha, la
+    ultima etiqueta se sale del pozo; solo tirando a la izquierda, se sale la
+    primera. Con las dos pasadas el grupo entero se desliza y suele caber.
+
+    Devuelve (x izquierda, texto) en el orden en el que hay que pintarlas.
+    """
+    m = tipo.metrics(role)
+    datos = sorted(items, key=lambda it: it[0])
+    while datos:
+        anchos = [m.horizontalAdvance(t) for _x, t in datos]
+        izq = [x + 3.0 for x, _t in datos]
+        for i in range(1, len(datos)):              # ida: nadie pisa al vecino
+            izq[i] = max(izq[i], izq[i - 1] + anchos[i - 1] + gap)
+        izq[-1] = min(izq[-1], well.right() - anchos[-1])
+        for i in range(len(datos) - 2, -1, -1):     # vuelta: que quepa la ultima
+            izq[i] = min(izq[i], izq[i + 1] - anchos[i] - gap)
+        if izq[0] >= well.left():
+            return [(izq[i], datos[i][1]) for i in range(len(datos))]
+        datos.pop()             # no caben todas: se cae la de mas a la derecha
+    return []
 
 
 def veil(p: QPainter, rect: QRectF, band: float = 0.55) -> None:
@@ -721,13 +769,20 @@ class Trace(_Scrolling, ChartWidget):
         pozo = self.well_rect()
         if pozo.isEmpty():
             return
+        if self._ensure() != "none":
+            pm = self._buf.pixmap
+            if pm is not None:
+                p.drawPixmap(pozo.topLeft(), pm)
+        # La rejilla va **encima** del pozo desplazado, no debajo. Con
+        # ``ground=True`` el pixmap es opaco (cada columna se limpia con el
+        # color del suelo) y una rejilla pintada antes queda tapada entera: la
+        # traza salia sin rejilla y sin etiquetas de eje, que es justo lo
+        # contrario de lo que pide el apartado 8.5.1. Encima se lee en las dos
+        # configuraciones, y son cuatro filos de pelo.
         if self._grid:
             draw_grid(p, pozo, self._lo, self._hi, unit=self._unit)
         if self._ensure() == "none":
             return
-        pm = self._buf.pixmap
-        if pm is not None:
-            p.drawPixmap(pozo.topLeft(), pm)
         if self._head is not None:
             # el halo del punto de cabeza se pinta aqui y no en el pozo: si
             # entrase en el pixmap se desplazaria con el y la traza dejaria un
@@ -1161,6 +1216,7 @@ class Histogram(ChartWidget):
             p.fillPath(_rounded_top(r, barra / 2.0), _c(color, area_alpha()))
 
         p.setFont(tipo.font("axis"))
+        marcas = []
         for valor, etiqueta in self._marks:
             x = pozo.left() + (valor - self._lo) / span * pozo.width()
             pen = QPen(_c(theme.C.ink.secondary, 0.85))
@@ -1170,10 +1226,10 @@ class Histogram(ChartWidget):
             p.setPen(pen)
             p.drawLine(QPointF(round(x) + 0.5, pozo.top()),
                        QPointF(round(x) + 0.5, pozo.bottom()))
-            p.setPen(QColor(theme.C.ink.secondary))
-            ancho_txt = tipo.metrics("axis").horizontalAdvance(etiqueta) + 6
-            izq = min(x + 3, pozo.right() - ancho_txt)
-            p.drawText(QRectF(izq, pozo.bottom() + 1, ancho_txt, 12),
+            marcas.append((x, etiqueta))
+        p.setPen(QColor(theme.C.ink.secondary))
+        for izq, etiqueta in place_labels(pozo, marcas):
+            p.drawText(QRectF(izq, pozo.bottom() + 1, pozo.width(), 12),
                        int(Qt.AlignmentFlag.AlignLeft), etiqueta)
 
 
@@ -1287,6 +1343,7 @@ class Scatter(ChartWidget):
         span = max(1e-6, self._hi - self._lo)
 
         p.setFont(tipo.font("axis"))
+        reglas = []
         for valor, etiqueta in self._rules:
             x = pozo.left() + (valor - self._lo) / span * pozo.width()
             pen = QPen(_c(theme.C.ink.secondary, 0.8))
@@ -1296,10 +1353,10 @@ class Scatter(ChartWidget):
             p.setPen(pen)
             p.drawLine(QPointF(round(x) + 0.5, pozo.top()),
                        QPointF(round(x) + 0.5, pozo.bottom()))
-            p.setPen(QColor(theme.C.ink.tertiary))
-            ancho = tipo.metrics("axis").horizontalAdvance(etiqueta) + 6
-            p.drawText(QRectF(min(x + 3, pozo.right() - ancho),
-                              pozo.bottom() + 1, ancho, 12),
+            reglas.append((x, etiqueta))
+        p.setPen(QColor(theme.C.ink.tertiary))
+        for izq, etiqueta in place_labels(pozo, reglas):
+            p.drawText(QRectF(izq, pozo.bottom() + 1, pozo.width(), 12),
                        int(Qt.AlignmentFlag.AlignLeft), etiqueta)
 
         p.setPen(Qt.PenStyle.NoPen)
@@ -1504,8 +1561,11 @@ class _AnalysisCard(Sheet):
     que informa y uno que impresiona.
     """
 
-    #: Alto de la ficha del apartado 8.5: 2 columnas x 190 px.
-    CARD_SIZE = QSize(272, 190)
+    #: Ficha del apartado 8.5. El alto sube de 190 a 220: a 190 cabia, pero sin
+    #: holgura ninguna, y si la frase calculada crecia a tres lineas la nube de
+    #: CIERRES se quedaba en 24 px de alto. Una ficha que solo cabe con el texto
+    #: de hoy se rompera con el de manyana.
+    CARD_SIZE = QSize(272, 220)
 
     TITLE = ""
     FOOTNOTE = ""
@@ -1541,11 +1601,21 @@ class _AnalysisCard(Sheet):
                    tipo.text("overline", self.TITLE))
 
     def paint_footnote(self, p: QPainter, content: QRectF) -> None:
-        p.setFont(tipo.font("caption", size=11))
+        """La nota de calculo, recortada con puntos suspensivos si no cabe.
+
+        En 232 px de contenido la nota de una ficha no siempre entra entera, y
+        ``drawText`` la corta a mitad de palabra sin avisar: "...en cada cierre
+        · co". Un texto cortado a hachazo parece un fallo de pintado; uno con
+        puntos suspensivos dice lo que es, que hay mas.
+        """
+        fuente = tipo.font("caption", size=11)
+        p.setFont(fuente)
         p.setPen(QColor(theme.C.ink.tertiary))
-        p.drawText(self.footnote_rect(content),
-                   int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                   self.FOOTNOTE)
+        r = self.footnote_rect(content)
+        texto = QFontMetricsF(fuente).elidedText(
+            self.FOOTNOTE, Qt.TextElideMode.ElideRight, r.width())
+        p.drawText(r, int(Qt.AlignmentFlag.AlignLeft
+                          | Qt.AlignmentFlag.AlignVCenter), texto)
 
 
 class LatencyBudget(_AnalysisCard):
@@ -1563,7 +1633,7 @@ class LatencyBudget(_AnalysisCard):
     """
 
     TITLE = "presupuesto de retardo"
-    FOOTNOTE = "captura + visión + resto del periodo · objetivo 100 ms"
+    FOOTNOTE = "captura + visión + resto · objetivo 100 ms"
 
     LEGEND_W = 96.0
 
@@ -1646,7 +1716,7 @@ class Closures(_AnalysisCard):
     """
 
     TITLE = "cierres"
-    FOOTNOTE = "mínimo de pinch alcanzado en cada cierre · color = desenlace"
+    FOOTNOTE = "pinch mínimo por cierre · color = desenlace"
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1668,6 +1738,9 @@ class Closures(_AnalysisCard):
         self._advice = closure_advice(minima, outcomes, pinch_on)
         self._counts = [int((np.asarray(outcomes) == i).sum())
                         for i in range(4)]
+        # la frase manda en la altura de todo lo demas: si cambia de una linea
+        # a tres, la nube tiene que encoger o la tapa
+        self._relayout()
         self.update()
 
     def on_theme(self) -> None:
@@ -1675,37 +1748,75 @@ class Closures(_AnalysisCard):
         self._scatter._colors = outcome_colors()
         self._scatter.update()
 
+    #: Alto de una fila de leyenda, en px.
+    LEGEND_ROW = 14.0
+
+    def _legend_rows(self, width: float) -> list[list[tuple[str, int, float]]]:
+        """Reparte la leyenda en las filas que de verdad caben en el ancho.
+
+        Los cuatro desenlaces con su cuenta piden unos 280 px y la tarjeta
+        tiene 232 de contenido: en una sola fila el ultimo salia cortado por el
+        canto de la lamina. Se reparte en dos filas, que caben.
+        """
+        m = tipo.metrics("axis")
+        filas: list[list[tuple[str, int, float]]] = [[]]
+        usado = 0.0
+        for i, nombre in enumerate(OUTCOME_NAMES):
+            texto = f"{nombre} {self._counts[i]}"
+            ancho = 10.0 + m.horizontalAdvance(texto) + 14.0
+            if usado + ancho > width and filas[-1]:
+                filas.append([])
+                usado = 0.0
+            filas[-1].append((texto, i, usado))
+            usado += ancho
+        return filas
+
+    def _boxes(self, content: QRectF):
+        """Reparte el alto de abajo arriba: nota, frase, leyenda y lo que sobra.
+
+        Se hace en este orden porque la frase calculada es la unica pieza cuyo
+        alto no controla la tarjeta -- depende de lo que digan los datos -- y
+        maquetar de arriba abajo con un hueco fijo para la nube es lo que hacia
+        que la frase acabase pintada encima de la leyenda.
+        """
+        frase = tipo.Parrafo(self._advice.text, "caption")
+        frase.set_width(content.width())
+        filas = self._legend_rows(content.width())
+        y_frase = content.bottom() - 15.0 - frase.height()
+        y_leyenda = y_frase - 4.0 - len(filas) * self.LEGEND_ROW
+        arriba = content.top() + 20.0
+        nube = QRectF(content.left(), arriba, content.width(),
+                      max(24.0, y_leyenda - 4.0 - arriba))
+        return nube, filas, y_leyenda, frase, y_frase
+
+    def _relayout(self) -> None:
+        self._scatter.setGeometry(self._boxes(self.content_rect())[0].toRect())
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        c = self.content_rect()
-        self._scatter.setGeometry(
-            QRectF(c.left(), c.top() + 20.0, c.width(), 72.0).toRect())
+        self._relayout()
 
     def paint_content(self, p: QPainter, content: QRectF) -> None:
         self.paint_header(p, content)
+        _nube, filas, y, frase, y_frase = self._boxes(content)
 
-        # leyenda: cuatro puntos con su cuenta, en una fila
         colores = outcome_colors()
-        x = content.left()
-        y = content.top() + 100.0
         p.setFont(tipo.font("axis"))
-        for i, nombre in enumerate(OUTCOME_NAMES):
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(_c(colores[i], 0.90))
-            p.drawEllipse(QPointF(x + 3.0, y + 6.0), 3.0, 3.0)
-            texto = f"{nombre} {self._counts[i]}"
-            ancho = tipo.metrics("axis").horizontalAdvance(texto)
-            p.setPen(QColor(theme.C.ink.tertiary))
-            p.drawText(QRectF(x + 10.0, y, ancho + 2, 13.0),
-                       int(Qt.AlignmentFlag.AlignLeft), texto)
-            x += ancho + 22.0
+        for fila in filas:
+            for texto, i, dx in fila:
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(_c(colores[i], 0.90))
+                p.drawEllipse(QPointF(content.left() + dx + 3.0, y + 6.0),
+                              3.0, 3.0)
+                p.setPen(QColor(theme.C.ink.tertiary))
+                p.drawText(QRectF(content.left() + dx + 10.0, y,
+                                  content.width(), 13.0),
+                           int(Qt.AlignmentFlag.AlignLeft), texto)
+            y += self.LEGEND_ROW
 
-        frase = tipo.Parrafo(self._advice.text, "caption")
-        frase.set_width(content.width())
-        y = content.bottom() - 16.0 - frase.height()
         p.setPen(QColor(theme.C.ink.primary if self._advice.value is not None
                         else theme.C.ink.secondary))
-        frase.draw(p, content.left(), y)
+        frase.draw(p, content.left(), y_frase)
         self.paint_footnote(p, content)
 
 
@@ -1720,7 +1831,7 @@ class PointerStability(_AnalysisCard):
     """
 
     TITLE = "estabilidad del puntero"
-    FOOTNOTE = "temblor = media de |p−2p′+p″| · 300 muestras apuntando"
+    FOOTNOTE = "temblor = media |p−2p′+p″| · 300 muestras"
 
     FOOTPRINT = 120.0
 
