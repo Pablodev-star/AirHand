@@ -1216,3 +1216,33 @@ reexporta para no romper importaciones existentes durante la migración.
 *Documento cerrado. Si algo aquí resulta impracticable durante la implementación, la respuesta
 correcta es anotarlo en este archivo con el plan B, no improvisar una solución que rompa uno de
 los cinco principios del §1.*
+
+---
+
+## Defecto abierto
+
+**Cambiar de tema con la pagina de ANALISIS construida tumba el proceso** con
+una violacion de acceso al repintar, sin traza de Python porque ocurre dentro
+de una llamada de C++.
+
+Lo que se comprobo, para que quien lo retome no repita el camino:
+
+* No es el cambio de tema en si: el asistente, la columna viva, el mosaico, la
+  barra y los ajustes aguantan seis cambios seguidos sin caer.
+* No es una ficha suelta: `_LineaDeTiempo`, `_Latencia`, `_RelojDeModos`,
+  `_CurvaDePinch`, `_Cierres` y `_Bucle` pasan por separado.
+* Una `Sheet` con una `Metric` dentro pasa. La misma composicion hecha como
+  subclase de `Sheet` cae, y sigue cayendo convertida en fabrica.
+* No lo arregla topar `content_rect` a cero, ni guardar `paint_sheet` y
+  `Sheet.paintEvent` contra cajas vacias, ni aplazar el retematizado un ciclo,
+  ni reconstruir la pagina entera.
+* La pagina construida y mostrada **sin** tocar el tema funciona.
+
+Mitigacion en vigor: el panel construye la pagina solo al abrirla, asi que el
+cambio de tema es seguro mientras no se haya entrado en Analisis. Sigue siendo
+un defecto: quien entre ahi y luego cambie de tema pierde el programa.
+
+Sospecha para retomarlo: alguna de las fichas guarda un mapa de pixeles para el
+blit desplazado y lo regenera mientras Qt esta a media repintada. Conviene
+instrumentar `charts.ChartWidget.invalidate` y mirar quien recrea un `QPixmap`
+durante la cascada.
