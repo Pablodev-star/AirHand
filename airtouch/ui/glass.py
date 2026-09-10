@@ -719,6 +719,14 @@ def paint_sheet(painter: QPainter, rect: QRectF | QRect,
     at = atlas if atlas is not None else ATLAS
 
     r = sheet_rect(rect, elev, t)
+    # Una lamina sin superficie no se pinta. Parece obvio y no lo es: Qt
+    # entrega eventos de pintado con el widget todavia a 0x0 -durante la
+    # construccion, y otra vez al repintar tras un cambio de tema-, y pintar
+    # ahi tumbaba el proceso con una violacion de acceso, sin traza de Python
+    # porque ocurre dentro de una llamada de C++.
+    if r.width() <= 0.0 or r.height() <= 0.0:
+        return QPainterPath()
+
     rad = radius
     if rad <= R_FULL:
         rad = min(r.width(), r.height()) / 2.0

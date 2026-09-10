@@ -400,6 +400,9 @@ class ColumnaViva(ThemeAware, QWidget):
         self.atajos[2].pulsada.connect(self.asistente.emit)
 
         self._escape = ""
+        # lo fija _colocar(); se inicializa porque un primer paintEvent
+        # puede llegar antes que el primer resizeEvent
+        self._y_atajos = 0.0
 
     # -- API ----------------------------------------------------------------
     @property

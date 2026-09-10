@@ -432,6 +432,15 @@ class Sheet(ThemeAware, Beating, QWidget):
         """
         r = self.glass_box().adjusted(self._padding, self._padding,
                                       -self._padding, -self._padding)
+        # Nunca negativo. Con la lamina mas pequenya que su propio relleno esto
+        # devolvia -92x-92, y quien lo pasara a setGeometry -una ficha que
+        # recoloca a su hijo en resizeEvent- tumbaba el proceso con una
+        # violacion de acceso. Ocurria de verdad: al cambiar de tema Qt
+        # redimensiona a 0x0 un instante mientras repinta.
+        if r.width() < 0.0:
+            r.setWidth(0.0)
+        if r.height() < 0.0:
+            r.setHeight(0.0)
         return r.translated(0.0, self.content_offset())
 
     def place(self, rect: QRectF | QRect) -> None:
@@ -579,7 +588,17 @@ class Sheet(ThemeAware, Beating, QWidget):
         """Gancho para las laminas que pintan su contenido a mano."""
 
     def paintEvent(self, event) -> None:
+        # Una lamina sin superficie no se pinta, y crear el QPainter sobre ella
+        # tampoco: eso ultimo tumbaba el proceso con una violacion de acceso,
+        # sin traza de Python porque ocurre dentro de una llamada de C++.
+        # Pasaba de verdad: una ficha que crea su hijo dentro de su propio
+        # __init__ -cuando ella sigue a medio construir y ya esta dada de alta
+        # en el latido- recibe un evento de pintado con la caja todavia a cero.
+        if self.width() <= 0 or self.height() <= 0:
+            return
         p = QPainter(self)
+        if not p.isActive():
+            return
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         path = self.paint_glass(p)
         p.save()

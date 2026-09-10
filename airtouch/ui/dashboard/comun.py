@@ -31,7 +31,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
-from .. import motion, theme
+from .. import motion, theme, tipo
 from ..kit.base import Beating, ThemeAware
 from ..tokens import R_SM
 from ..wizard.piezas import Progresion, texto, texto_ajustado
@@ -302,6 +302,19 @@ class Pagina(ThemeAware, Beating, QWidget):
     def al_salir(self) -> None:
         """La pagina deja de estar delante. Obligatorio soltar lo caro aqui."""
 
+    # -- datos --------------------------------------------------------------
+    # El armazon reparte a ciegas: llama a los tres en la pagina que esta
+    # delante y en ninguna otra. Estan aqui vacios para que una pagina que solo
+    # quiere fotogramas no tenga que escribir los otros dos.
+    def on_output(self, out) -> None:
+        """Un ``EngineOutput``. Llega a 60 Hz: aqui no se hace nada caro."""
+
+    def on_stats(self, stats: dict) -> None:
+        """Un ``stats_ready``. Llega a ~4 Hz."""
+
+    def on_frame(self, frame, estado) -> None:
+        """Un ``frame_ready``: imagen BGR y ``FrameState``."""
+
     def on_theme(self) -> None:
         self.colocar()
         self.update()
@@ -459,8 +472,21 @@ class FilaCompacta(ThemeAware, QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         t = theme.C
         r = QRectF(self.rect())
-        texto(p, QRectF(r.left(), r.top(), r.width() * 0.62, r.height()),
-              "caption", self._etiqueta, t.ink.secondary)
+        ancho = r.width() * 0.62
+        if self._nota:
+            # El principio 4 obliga a que toda metrica derivada diga como se
+            # calcula. Con nota, la etiqueta sube y la cuenta va debajo en
+            # 11 px; sin ella, la etiqueta se queda centrada y no sobra hueco.
+            texto(p, QRectF(r.left(), r.top() + 3.0, ancho, 16.0),
+                  "caption", self._etiqueta, t.ink.secondary)
+            p.setFont(tipo.font("caption", size=11))
+            p.setPen(QColor(t.ink.quiet))
+            p.drawText(QRectF(r.left(), r.top() + 19.0, ancho, 13.0),
+                       int(Qt.AlignmentFlag.AlignLeft
+                           | Qt.AlignmentFlag.AlignVCenter), self._nota)
+        else:
+            texto(p, QRectF(r.left(), r.top(), ancho, r.height()),
+                  "caption", self._etiqueta, t.ink.secondary)
         texto(p, r, "body-fuerte", self._valor, t.ink.primary,
               Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         p.end()

@@ -249,6 +249,10 @@ def main(argv: list[str]) -> int:
     print(f"\nImágenes en {destino}")
     import os
 
+    # os._exit NO vacia el bufer de salida: sin este flush todos los
+    # print de la herramienta se pierden y parece que no dice nada.
+    sys.stdout.flush()
+    sys.stderr.flush()
     os._exit(0)
 
 

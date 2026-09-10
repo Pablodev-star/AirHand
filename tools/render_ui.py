@@ -140,6 +140,10 @@ def main(argv: list[str]) -> int:
     # os._exit: hay hilos de cámara y de red que no siempre se cierran solos, y
     # aquí no importa: es una herramienta de usar y tirar.
     QTimer.singleShot(0, lambda: None)
+    # os._exit NO vacia el bufer de salida: sin este flush todos los
+    # print de la herramienta se pierden y parece que no dice nada.
+    sys.stdout.flush()
+    sys.stderr.flush()
     os._exit(0)
 
 
