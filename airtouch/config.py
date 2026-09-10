@@ -14,8 +14,19 @@ from typing import Any
 
 
 def app_data_dir() -> Path:
-    base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-    d = Path(base) / "AirTouch"
+    """Donde viven la configuracion, los certificados y los registros.
+
+    ``AIRTOUCH_DATA_DIR`` la desvia. Existe por un fallo real y caro: las
+    pruebas y las herramientas de render construyen un ``Config`` y alguna
+    pagina llama a ``save()``, asi que escribian en la configuracion DE VERDAD
+    del usuario. El resultado fue que la aplicacion arrancaba con un puerto de
+    prueba y con ``first_run`` ya consumido, y por tanto sin asistente y sin
+    servidor donde nadie lo buscaba.
+    """
+    desvio = os.environ.get("AIRTOUCH_DATA_DIR")
+    base = desvio or os.environ.get("APPDATA") or str(
+        Path.home() / "AppData" / "Roaming")
+    d = Path(base) if desvio else Path(base) / "AirTouch"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

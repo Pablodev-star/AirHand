@@ -41,6 +41,17 @@ import numpy as np
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
+import os
+import tempfile
+
+# Nunca escribir en la configuracion real del usuario: alguna pagina llama a
+# save() y nos llevabamos por delante sus ajustes. Hay que desviarlo ANTES de
+# importar airtouch.config, que resuelve la ruta al importarse.
+os.environ.setdefault(
+    "AIRTOUCH_DATA_DIR",
+    str(Path(tempfile.gettempdir()) / "airtouch-pruebas"))
+
+
 from PySide6.QtCore import QPoint, QRect, QRectF, Qt              # noqa: E402
 from PySide6.QtGui import QColor, QPainter                        # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget               # noqa: E402

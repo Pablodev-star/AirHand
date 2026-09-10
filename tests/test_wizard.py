@@ -25,6 +25,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import os
+import tempfile
+
+# Nunca escribir en la configuracion real del usuario: alguna pagina llama a
+# save() y nos llevabamos por delante sus ajustes. Hay que desviarlo ANTES de
+# importar airtouch.config, que resuelve la ruta al importarse.
+os.environ.setdefault(
+    "AIRTOUCH_DATA_DIR",
+    str(Path(tempfile.gettempdir()) / "airtouch-pruebas"))
+
+
 # Igual que en test_engine: una pantalla fija, para no depender del monitor de
 # quien ejecute esto. Hay que hacerlo antes de importar lo que la consulta.
 from airtouch.core import screen as _screen                # noqa: E402
